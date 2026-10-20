@@ -112,8 +112,12 @@ def test_repetition_flags_human_needed_and_low_confidence_pause(tmp_path):
 
 def test_config_jev_defaults_and_validation(monkeypatch, tmp_path):
     monkeypatch.setattr("syzetetes.config.USER_CONFIG", tmp_path / "absent.toml")
-    cfg = load_config({"referee": "jev"})
-    assert cfg.referee_model == "haiku" and cfg.scribe == "claude" and cfg.judge_model == "jev-latest"
+    cfg = load_config({})
+    assert cfg.referee == "jev" and cfg.referee_model == "haiku" and cfg.referee_effort == "low"
+    assert cfg.scribe == "claude" and cfg.judge_model == "jev-latest"
+    llm = load_config({"referee": "claude"})
+    assert llm.referee_model == "sonnet" and llm.referee_effort == "medium"
+    assert load_config({"referee": "codex", "referee_model": "gpt-6.1-sol"}).referee_model == "gpt-6.1-sol"
     assert load_config({"referee": "jev", "referee_model": "sonnet"}).referee_model == "sonnet"
     assert load_config({"pause_on": ["low_confidence"]}).pause_on == ["low_confidence"]
     with pytest.raises(SystemExit):

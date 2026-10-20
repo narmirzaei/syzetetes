@@ -86,9 +86,9 @@ def _model_opts(p: argparse.ArgumentParser):
     g.add_argument("--claude-effort", help="low | medium | high | xhigh | max")
     g.add_argument("--codex-model", help="any model your ChatGPT plan allows (default: your Codex config)")
     g.add_argument("--codex-effort", help="low | medium | high | xhigh | ultra")
-    g.add_argument("--referee", choices=["claude", "codex", "jev"],
-                   help="claude | codex: an LLM keeps the ledger; jev: TypeSafe's decision model judges every claim "
-                        "(needs $TYPESAFE_API_KEY) and the LLM only writes prose")
+    g.add_argument("--referee", choices=["jev", "claude", "codex"],
+                   help="jev (default): TypeSafe's decision model judges every claim (needs $TYPESAFE_API_KEY) and an "
+                        "LLM scribe writes the prose; claude | codex: an LLM keeps the whole ledger")
     g.add_argument("--referee-model", help="referee model, or the scribe's model when --referee jev")
     g.add_argument("--referee-effort")
     g.add_argument("--scribe", choices=["claude", "codex"], help="with --referee jev: which CLI writes the prose")
@@ -109,9 +109,10 @@ log = logging.getLogger("syzetetes")
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .judge import JudgeError
     try:
         return _main(argv)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, JudgeError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 

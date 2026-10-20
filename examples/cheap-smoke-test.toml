@@ -5,8 +5,6 @@ topic = "Tabs or spaces for Python?"
 claude_model = "haiku"
 claude_effort = "low"
 codex_effort = "low"
-referee_model = "haiku"
-referee_effort = "low"
 
 [debate]
 max_rounds = 1

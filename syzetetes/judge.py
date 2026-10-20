@@ -94,7 +94,9 @@ class JevJudge(Judge):
         self.calls = 0
         self.input_tokens = 0
         if not self.api_key:
-            raise JudgeError(f"referee = jev needs an API key in ${ENV_KEY} (get one at https://console.typesafe.ai/keys)")
+            raise JudgeError(f"The default referee is Jev, which needs an API key: put TYPESAFE_API_KEY=... in ./.env.local "
+                             f"or export it (get one at https://console.typesafe.ai/keys). "
+                             f"To referee with an LLM instead: --referee claude or --referee codex.")
 
     def ask(self, state: dict, questions: dict) -> dict:
         body = json.dumps({"model": self.model, "state": state, "questions": questions}, ensure_ascii=False).encode()

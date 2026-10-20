@@ -81,7 +81,9 @@ class Debate:
                 "codex": make_agent("codex", cfg.codex_model, cfg.codex_effort, cfg.timeout_s, cfg.retries),
                 "referee": make_agent(llm_ref, cfg.referee_model, cfg.referee_effort, cfg.timeout_s, cfg.retries),
             }
-        self.judge = judge if judge is not None else (judging.make_judge("jev", cfg.judge_model) if cfg.referee == "jev" else None)
+        # Injected agents (tests) never get a real judge unless one is injected too.
+        self.judge = judge if judge is not None else (
+            judging.make_judge("jev", cfg.judge_model) if cfg.referee == "jev" and agents is None else None)
         self.state: dict = {}
 
     # ------------------------------------------------------------ lifecycle

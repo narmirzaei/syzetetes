@@ -7,7 +7,7 @@ claude_model = "opus"
 claude_effort = "high"
 codex_model = "gpt-6.1-sol"
 codex_effort = "high"
-referee = "claude"
+referee = "claude"            # this run predates the Jev referee; drop these three lines to use the default
 referee_model = "sonnet"
 referee_effort = "medium"
 

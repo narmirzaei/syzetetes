@@ -6,17 +6,19 @@ of what they agreed on, what they still dispute, and why. You can seed it with y
 opinions and facts; steer it while it runs; replay it with hindsight; review visually how every claim
 moved; and afterwards ask questions that are answered only from what the debate produced.
 
-- **Claude** runs through the [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI on your Claude subscription.
-- **Codex** runs through the [Codex](https://github.com/openai/codex) CLI on your ChatGPT subscription.
-- No API keys and no third-party services. Nothing leaves your machine except through those two CLIs.
-  (One opt-in exception: the [Jev referee](#let-a-decision-model-referee-jev) uses TypeSafe's API.)
+- **Claude** debates through the [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI on your Claude subscription.
+- **Codex** debates through the [Codex](https://github.com/openai/codex) CLI on your ChatGPT subscription.
+- **Jev**, [TypeSafe AI](https://typesafe.ai)'s decision model, referees: it judges every claim after every
+  round with a calibrated confidence and writes no text. Needs a `TYPESAFE_API_KEY` (cents per debate).
+  You can referee with an LLM instead (`--referee claude`), with no key at all.
+- Nothing else leaves your machine.
 - Zero Python dependencies. Python 3.11+.
 
 See [example-report.md](example-report.md) for a finished report and [examples/](examples/) for ready-made specs.
 
 ## Contents
 
-- [Why two models](#why-two-models)
+- [Why two models and a decision model](#why-two-models-and-a-decision-model)
 - [Install](#install)
 - [Five-minute tour](#five-minute-tour)
 - [How a run works](#how-a-run-works)
@@ -28,8 +30,8 @@ See [example-report.md](example-report.md) for a finished report and [examples/]
   - [Establish a fact it must not argue with](#establish-a-fact-it-must-not-argue-with)
   - [Decide when it stops and asks you](#decide-when-it-stops-and-asks-you)
   - [Replay a finished debate with hindsight](#replay-a-finished-debate-with-hindsight)
-  - [Let Codex referee](#let-codex-referee)
-  - [Let a decision model referee (Jev)](#let-a-decision-model-referee-jev)
+  - [How the Jev referee works](#how-the-jev-referee-works)
+  - [Let an LLM referee instead](#let-an-llm-referee-instead)
   - [Review how the synthesis was reached](#review-how-the-synthesis-was-reached)
   - [Interrogate the result](#interrogate-the-result)
   - [Reproduce a run](#reproduce-a-run)
@@ -40,12 +42,19 @@ See [example-report.md](example-report.md) for a finished report and [examples/]
 - [Design notes](#design-notes)
 - [Layout, tests, contributing, license](#layout)
 
-## Why two models
+## Why two models and a decision model
 
 A single model asked to "consider both sides" tends to produce a tidy, agreeable survey. Two models with
-different training, forced to answer each other's claims one by one with sources, under a referee that
-only keeps the books, produce something closer to a real argument: concessions with reasons, disputes
-narrowed to their crux, and an honest list of what nobody could settle.
+different training, forced to answer each other's claims one by one with sources, produce something
+closer to a real argument: concessions with reasons, disputes narrowed to their crux, and an honest list
+of what nobody could settle.
+
+The referee is deliberately not a third LLM. Jev is a decision model: given a claim and what each side
+said about it this round, it returns a status, who moved, whether a side merely repeated itself, the kind
+of crux, whose case is stronger, and whether you are needed, each as a probability. It cannot argue,
+cannot write, and cannot favour the model that shares its training. A small LLM scribe writes the words
+around those verdicts and cannot change them. The result is a ledger you can audit: every status has a
+confidence, and the unsure ones can be handed to you.
 
 ## Install
 
@@ -64,7 +73,9 @@ pipx install --editable .           # global command, editable
 python3 -m venv .venv && .venv/bin/pip install -e . pytest    # venv for the tests
 ```
 
-Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex login`).
+Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex login`), and a TypeSafe
+key for the referee: put `TYPESAFE_API_KEY=...` in `./.env.local` or export it (get one at
+https://console.typesafe.ai/keys). Without a key, pass `--referee claude` or `--referee codex`.
 
 ## Five-minute tour
 
@@ -92,15 +103,17 @@ syzetetes run "Is remote work net positive for early-stage startups?"
 2. **Opening positions.** Each states a thesis and falsifiable claims with sources.
 3. **Rounds.** Debaters alternate (who speaks first flips each round). Every turn must answer the other
    side's claims by ID with one stance each: accept, maintain (with a *new* argument), revise, or agree to
-   disagree. After each round a **referee** (bookkeeping only, never argues) updates the claim ledger, flags
-   repetition, and nudges a side that is restating itself.
+   disagree. After each round the **referee** judges every claim: Jev decides status, who moved, repetition,
+   crux kind, whose case is stronger and whether you are needed, each with a confidence; a scribe LLM
+   writes the crux, the round summary and a nudge to a side that is restating itself.
 4. **Termination.** The debate ends when every claim is settled, when both sides say they have nothing new,
    when the ledger has not moved for `stable_rounds` rounds, or at the round cap.
 5. **Human checkpoints.** The run stops and asks you in the situations you chose (by default: when the
-   referee cannot resolve something, or the ledger stalls). You can let it continue, stop it, give an
-   opinion, or establish a fact.
-6. **Closing and synthesis.** Each side writes a closing statement. The referee model writes the executive
-   summary, per-claim verdicts, the strongest case for and against, and guidance for you.
+   referee says a human decision is needed, or the ledger stalls). You can let it continue, stop it, give
+   an opinion, or establish a fact.
+6. **Closing and synthesis.** Each side writes a closing statement. The scribe LLM writes the executive
+   summary, per-claim verdicts, the strongest case for and against, and guidance for you, with Jev's
+   final verdict table in front of it.
 7. **Report and review.** A Markdown report with every argument, the agreed / conceded / disputed /
    agree-to-disagree points, closing statements, briefings, the full transcript and a numbered reference
    list; and an interactive HTML review of how the ledger moved.
@@ -133,9 +146,11 @@ claude_model = "opus"        # opus | sonnet | haiku | fable | full model id
 claude_effort = "high"       # low | medium | high | xhigh | max
 codex_model = "gpt-6.1-sol"  # whatever your ChatGPT plan allows; defaults to ~/.codex/config.toml
 codex_effort = "high"
-referee = "claude"           # claude | codex
-referee_model = "sonnet"
-referee_effort = "medium"
+referee = "jev"              # jev (default) | claude | codex
+judge_model = "jev-latest"   # jev-latest | jev-preview | jev-1.14.0
+scribe = "claude"            # which CLI writes the prose under jev
+referee_model = "haiku"      # the scribe's model under jev; the referee's model under claude/codex (then sonnet)
+referee_effort = "low"
 
 [debate]
 max_rounds = 8
@@ -181,7 +196,7 @@ pause_on = []
 
 ```
 syzetetes run "Tabs or spaces for Python?" --claude-model haiku --claude-effort low --codex-effort low \
-  --referee-model haiku --referee-effort low --max-rounds 1 --no-research --unattended
+  --max-rounds 1 --no-research --unattended
 ```
 
 ### Give it your context and sources
@@ -305,26 +320,10 @@ syzetetes rerun D0001 --source https://new-paper.org      # new sources: researc
 syzetetes rerun D0001 --keep-rounds 3 --claude-model fable --max-rounds 10   # change models or shape
 ```
 
-### Let Codex referee
+### How the Jev referee works
 
-If you worry about Claude refereeing a Claude-vs-Codex debate, swap the referee and compare the two
-reports. [examples/codex-referees.toml](examples/codex-referees.toml)
-
-```toml
-[models]
-referee = "codex"
-referee_model = "gpt-6.1-sol"
-```
-
-```
-syzetetes run "..." --referee codex --referee-model gpt-6.1-sol
-```
-
-### Let a decision model referee (Jev)
-
-The LLM referee rewrites the whole ledger in one shot and gives no confidence for any judgment. With
-`referee = "jev"`, [Jev](https://typesafe.ai) (TypeSafe AI's decision model) judges **every claim after
-every round** with calibrated probabilities, and a small LLM scribe only writes the words around those
+The default. [Jev](https://typesafe.ai) (TypeSafe AI's decision model) judges **every claim after every
+round** with calibrated probabilities, and a small LLM scribe only writes the words around those
 verdicts; it cannot change them. [examples/jev-referees.toml](examples/jev-referees.toml)
 
 ```toml
@@ -338,9 +337,8 @@ pause_on = ["referee", "stall", "low_confidence"]   # also stop when Jev is unsu
 ```
 
 ```
-export TYPESAFE_API_KEY=...   # from https://console.typesafe.ai/keys; or put it in ./.env.local
-syzetetes run "..." --referee jev
-syzetetes rerun D0001 --keep-rounds 0 --referee jev   # re-judge an existing debate's rounds from the openings
+syzetetes run "..."                                      # Jev referees by default
+syzetetes rerun D0001 --keep-rounds 0                    # re-judge an older LLM-refereed debate from the openings
 ```
 
 What Jev decides, per claim, per round, each with a confidence: status (agreed / conceded / disputed /
@@ -360,12 +358,30 @@ probability split in the review page, a `low_confidence` pause trigger, and an a
 the transcript (`K7: disputed→agreed (0.91), moved codex, lean codex (0.64)`).
 
 Cost and caveats. This is the one place Syzetetes uses an API key: Jev bills $0.042 per million input
-tokens, output is free, and a 16-claim, 4-round debate is roughly 2 to 3 million tokens, about ten cents;
+tokens, output is free, and a 16-claim, 4-round debate is a few hundred thousand tokens, a cent or two;
 the run prints the exact token count at the end. Jev's benchmarks are vendor-run. Its documented
 weaknesses are handled (each claim gets a small state about this round only; every choice is asked twice
 with the options reversed and averaged to cancel first-option bias; nothing is counted or computed by
-the model), but measure it on your own debates: `rerun` an existing run with `--referee jev` and
-compare the two reports.
+the model), but measure it on your own debates: run the same spec with `--referee claude` and compare
+the two reports.
+
+### Let an LLM referee instead
+
+No TypeSafe key, or you want to compare: an LLM rewrites the whole ledger after each round. It gives no
+confidences and it is a frontier model judging frontier models, so pick the other provider's model if that
+worries you. [examples/codex-referees.toml](examples/codex-referees.toml)
+
+```toml
+[models]
+referee = "codex"              # or "claude"
+referee_model = "gpt-6.1-sol"  # defaults to sonnet / medium for claude
+```
+
+```
+syzetetes run "..." --referee claude
+syzetetes run "..." --referee codex --referee-model gpt-6.1-sol
+```
+
 
 ### Review how the synthesis was reached
 
@@ -441,10 +457,11 @@ syzetetes config                  print the effective defaults
 
 ## What it costs
 
-Every model call is a `claude -p` or `codex exec` subprocess, so usage lands on your two subscriptions,
-never on an API bill. A default run (Opus high, Codex high, Sonnet referee, up to 8 rounds, web research
-on) is roughly 30 to 35 model calls, each carrying the growing transcript. Expect a noticeable dent in
-both weekly quotas. The smoke-test recipe above costs almost nothing. `chat` calls are tiny.
+Debater, scribe and chat calls are `claude -p` or `codex exec` subprocesses, so they land on your two
+subscriptions. A default run (Opus high, Codex high, up to 8 rounds, web research on) is roughly 30 to 35
+such calls, each carrying the growing transcript; expect a noticeable dent in both weekly quotas. The
+referee's Jev calls are billed to your TypeSafe key at $0.042 per million input tokens: a cent or two per
+debate, printed at the end of each run. The smoke-test recipe above costs almost nothing.
 
 ## Configuration defaults
 
@@ -455,7 +472,7 @@ as the `[models]` and `[debate]` sections, flat), then the spec file, then CLI f
 # ~/.config/syzetetes/config.toml
 claude_model = "opus"
 codex_model = "gpt-6.1-sol"
-referee = "claude"
+referee = "jev"
 max_rounds = 6
 pause_on = ["referee", "stall", "disputes"]
 out_dir = "~/debates"

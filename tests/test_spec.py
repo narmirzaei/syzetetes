@@ -67,7 +67,7 @@ def test_effective_spec_written_and_reloadable(tmp_path):
     d, _ = _run(tmp_path, {"ledger": lambda r: "conceded"}, {"unattended": True})
     text = d.files.spec.read_text()
     s = tomllib.loads(text)
-    assert s["topic"] == "Should we Test?" and s["debate"]["max_rounds"] == 4 and s["models"]["referee"] == "claude"
+    assert s["topic"] == "Should we Test?" and s["debate"]["max_rounds"] == 4 and s["models"]["referee"] == "jev"
     assert sp.load_spec(d.files.spec)["topic"] == "Should we Test?"
 
 
@@ -102,7 +102,7 @@ def test_wizard_fills_template(tmp_path):
 
 def test_wizard_rerun_branch():
     answers = iter(["y", "D0001", "2", "n", "", "", "", "", "a fact", "",
-                    "", "", "", "", "", "", "", "", "", "y", "", "", "", ""])
+                    "", "", "", "", "", "", "", "", "", "", "", "y", "", "", "", ""])  # jev branch asks 4 referee questions
     v = sp.wizard(ask=lambda _: next(answers), say=lambda *_: None)
     d = tomllib.loads(sp.template(v))
     assert d["rerun"] == {"from": "D0001", "keep_rounds": 2, "redo_openings": False} and d["facts"] == ["a fact"]

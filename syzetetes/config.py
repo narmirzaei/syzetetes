@@ -30,9 +30,9 @@ class Config:
 
     # Referee: bookkeeping only. "claude" or "codex" (an LLM keeps the ledger), or "jev" (TypeSafe's decision
     # model judges every claim; the LLM below only writes the prose and the synthesis; needs $TYPESAFE_API_KEY).
-    referee: str = "claude"
-    referee_model: str = "sonnet"        # with referee = "jev": the scribe's model (default becomes haiku)
-    referee_effort: str = "medium"
+    referee: str = "jev"
+    referee_model: str = "haiku"         # the scribe's model under jev; the referee's model under claude/codex
+    referee_effort: str = "low"          #   (an LLM referee defaults to sonnet / medium instead, see load_config)
     scribe: str = "claude"               # with referee = "jev": which CLI writes the prose, "claude" or "codex"
     judge_model: str = "jev-latest"      # with referee = "jev": jev-latest | jev-preview | jev-1.14.0 ...
 
@@ -95,8 +95,12 @@ def load_config(overrides: dict | None = None) -> Config:
         raise SystemExit("referee must be 'claude', 'codex' or 'jev'")
     if cfg.scribe not in ("claude", "codex"):
         raise SystemExit("scribe must be 'claude' or 'codex'")
-    if cfg.referee == "jev" and "referee_model" not in (overrides or {}) and not _user_sets("referee_model"):
-        cfg.referee_model = "haiku"
+    if cfg.referee != "jev":
+        # An LLM doing the whole referee job needs more than the scribe does.
+        if "referee_model" not in (overrides or {}) and not _user_sets("referee_model"):
+            cfg.referee_model = "sonnet"
+        if "referee_effort" not in (overrides or {}) and not _user_sets("referee_effort"):
+            cfg.referee_effort = "medium"
     return cfg
 
 
