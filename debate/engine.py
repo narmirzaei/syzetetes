@@ -74,7 +74,7 @@ class Debate:
         files = new_run(Path(cfg.out_dir), topic)
         d = cls(files, cfg, **kw)
         d.state = {
-            "code": files.code, "topic": topic, "context": context, "config": cfg.to_dict(),
+            "code": files.code, "topic": topic, "context": context, "sources": list(sources), "config": cfg.to_dict(),
             "created": datetime.now().isoformat(timespec="seconds"),
             "phase": "research" if cfg.research else "opening",
             "memos": {}, "rounds": [], "rulings": [], "opinions": [], "closings": {}, "synthesis": None,
