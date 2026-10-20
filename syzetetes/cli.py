@@ -86,9 +86,13 @@ def _model_opts(p: argparse.ArgumentParser):
     g.add_argument("--claude-effort", help="low | medium | high | xhigh | max")
     g.add_argument("--codex-model", help="any model your ChatGPT plan allows (default: your Codex config)")
     g.add_argument("--codex-effort", help="low | medium | high | xhigh | ultra")
-    g.add_argument("--referee", choices=["claude", "codex"], help="which CLI runs the bookkeeping referee")
-    g.add_argument("--referee-model")
+    g.add_argument("--referee", choices=["claude", "codex", "jev"],
+                   help="claude | codex: an LLM keeps the ledger; jev: TypeSafe's decision model judges every claim "
+                        "(needs $TYPESAFE_API_KEY) and the LLM only writes prose")
+    g.add_argument("--referee-model", help="referee model, or the scribe's model when --referee jev")
     g.add_argument("--referee-effort")
+    g.add_argument("--scribe", choices=["claude", "codex"], help="with --referee jev: which CLI writes the prose")
+    g.add_argument("--judge-model", help="with --referee jev: jev-latest | jev-preview | jev-1.14.0")
     d = p.add_argument_group("debate")
     d.add_argument("--max-rounds", type=int)
     d.add_argument("--stable-rounds", type=int, help="stop after this many rounds with no ledger change")
@@ -246,9 +250,9 @@ def _main(argv: list[str] | None) -> int:
 
 
 def _drive(d: Debate) -> int:
+    ref = f"{d.judge.label} judging, {d.agents['referee'].label} as scribe" if d.judge else d.agents["referee"].label
     log.info("Claude: %s | Codex: %s | Referee: %s | pause on: %s",
-             d.agents["claude"].label, d.agents["codex"].label, d.agents["referee"].label,
-             ", ".join(d.cfg.pause_on) or "nothing (unattended)")
+             d.agents["claude"].label, d.agents["codex"].label, ref, ", ".join(d.cfg.pause_on) or "nothing (unattended)")
     progress.start()
     try:
         report = d.run()
@@ -258,6 +262,9 @@ def _drive(d: Debate) -> int:
         return 130
     finally:
         progress.stop()
+    if d.judge is not None and getattr(d.judge, "calls", 0):
+        print(f"\nJev: {d.judge.calls} calls, {d.judge.input_tokens:,} input tokens "
+              f"(≈ ${d.judge.input_tokens / 1e6 * 0.042:.3f})")
     print(f"\nReport: {report}\nReview how it got there: syzetetes review {d.code}\nAsk about it: syzetetes chat {d.code}")
     return 0
 

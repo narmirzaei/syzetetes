@@ -28,10 +28,13 @@ class Config:
     codex_model: str = field(default_factory=_codex_default_model)
     codex_effort: str = "high"           # low | medium | high | xhigh | ultra (whatever Codex accepts)
 
-    # Referee: bookkeeping only. "claude" or "codex".
+    # Referee: bookkeeping only. "claude" or "codex" (an LLM keeps the ledger), or "jev" (TypeSafe's decision
+    # model judges every claim; the LLM below only writes the prose and the synthesis; needs $TYPESAFE_API_KEY).
     referee: str = "claude"
-    referee_model: str = "sonnet"
+    referee_model: str = "sonnet"        # with referee = "jev": the scribe's model (default becomes haiku)
     referee_effort: str = "medium"
+    scribe: str = "claude"               # with referee = "jev": which CLI writes the prose, "claude" or "codex"
+    judge_model: str = "jev-latest"      # with referee = "jev": jev-latest | jev-preview | jev-1.14.0 ...
 
     # Debate shape
     max_rounds: int = 8
@@ -64,6 +67,14 @@ class Config:
         return dataclasses.asdict(self)
 
 
+def _user_sets(key: str) -> bool:
+    try:
+        with USER_CONFIG.open("rb") as f:
+            return key in tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+
+
 def load_config(overrides: dict | None = None) -> Config:
     cfg = Config()
     if USER_CONFIG.exists():
@@ -80,12 +91,16 @@ def load_config(overrides: dict | None = None) -> Config:
     bad = [t for t in cfg.pause_on if not valid_trigger(t)]
     if bad:
         raise SystemExit(f"pause_on: unknown trigger(s) {bad}; expected one of {', '.join(TRIGGERS)}, round:N, custom:EXPR")
-    if cfg.referee not in ("claude", "codex"):
-        raise ValueError("referee must be 'claude' or 'codex'")
+    if cfg.referee not in ("claude", "codex", "jev"):
+        raise SystemExit("referee must be 'claude', 'codex' or 'jev'")
+    if cfg.scribe not in ("claude", "codex"):
+        raise SystemExit("scribe must be 'claude' or 'codex'")
+    if cfg.referee == "jev" and "referee_model" not in (overrides or {}) and not _user_sets("referee_model"):
+        cfg.referee_model = "haiku"
     return cfg
 
 
-TRIGGERS = ("referee", "stall", "every_round", "disputes", "agree_to_disagree")
+TRIGGERS = ("referee", "stall", "every_round", "disputes", "agree_to_disagree", "low_confidence")
 LEGACY_PAUSE = {"never": [], "referee": ["referee", "stall"], "disputes": ["referee", "stall", "disputes"],
                 "always": ["referee", "stall", "every_round"]}
 

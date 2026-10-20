@@ -19,7 +19,8 @@ DEFAULT_NAME = "syzetetes.toml"
 # Keys allowed at the top level of a spec, besides the sections below.
 INPUT_KEYS = ("topic", "note", "context_files", "sources", "opinions", "facts")
 SECTIONS = ("models", "debate", "rerun")
-MODEL_KEYS = ("claude_model", "claude_effort", "codex_model", "codex_effort", "referee", "referee_model", "referee_effort")
+MODEL_KEYS = ("claude_model", "claude_effort", "codex_model", "codex_effort", "referee", "referee_model", "referee_effort",
+              "scribe", "judge_model")
 DEBATE_KEYS = ("max_rounds", "stable_rounds", "research", "pause_on", "out_dir", "timeout_s", "retries")
 LEGACY_DEBATE_KEYS = ("pause", "pause_when")
 RERUN_KEYS = ("from", "keep_rounds", "redo_openings")
@@ -61,9 +62,13 @@ claude_model = {j(c["claude_model"])}            # opus | sonnet | haiku | fable
 claude_effort = {j(c["claude_effort"])}           # low | medium | high | xhigh | max
 codex_model = {j(c["codex_model"])}       # any model your ChatGPT plan allows
 codex_effort = {j(c["codex_effort"])}            # low | medium | high | xhigh | ultra
-referee = {j(c["referee"])}               # claude | codex: which CLI keeps the ledger and writes the synthesis
-referee_model = {j(c["referee_model"])}
+referee = {j(c["referee"])}               # claude | codex: an LLM keeps the ledger and writes the synthesis
+                                 # jev: TypeSafe's decision model judges every claim with confidences (needs $TYPESAFE_API_KEY);
+                                 #      the LLM below only writes the prose and the synthesis
+referee_model = {j(c["referee_model"])}         # with referee = "jev" this is the scribe's model (haiku is plenty)
 referee_effort = {j(c["referee_effort"])}
+scribe = {j(c["scribe"])}                # with referee = "jev": claude | codex writes the prose
+judge_model = {j(c["judge_model"])}      # with referee = "jev": jev-latest | jev-preview | jev-1.14.0
 
 # ------------------------------------------------------------------ debate shape and human pauses
 [debate]
@@ -76,6 +81,7 @@ pause_on = {lst(c["pause_on"])}   # when to stop and ask you (checked after ever
                                  #   "every_round"        after every round
                                  #   "disputes"           after every round that still has a disputed claim
                                  #   "agree_to_disagree"  a side wants to agree to disagree on a claim
+                                 #   "low_confidence"     (referee = jev) the judge was unsure about a status
                                  #   "round:3"            once, after round 3
                                  #   "custom:disputed >= 2 and round >= 2"   your own condition over the ledger counts
 out_dir = {j(c["out_dir"])}              # where run folders go
@@ -93,6 +99,7 @@ PAUSE_MENU = [
     ("stall",             "Nothing has changed for a while (otherwise a stall ends the debate)"),
     ("disputes",          "After every round that still has a disputed claim: I tie-break each one"),
     ("agree_to_disagree", "A side wants to agree to disagree on a claim: let me weigh in first"),
+    ("low_confidence",    "The judge (Jev) was unsure about a claim's status: let me decide it"),
     ("every_round",       "After every round"),
     ("round:",            "Once, after a specific round"),
     ("custom:",           "A condition of my own over the ledger counts"),
@@ -183,9 +190,17 @@ def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
     v["claude_effort"] = one("Claude effort", d["claude_effort"], choices=["low", "medium", "high", "xhigh", "max"])
     v["codex_model"] = one("Codex model", d["codex_model"])
     v["codex_effort"] = one("Codex effort", d["codex_effort"], choices=["low", "medium", "high", "xhigh", "ultra"])
-    v["referee"] = one("Referee CLI (claude | codex)", d["referee"], choices=["claude", "codex"])
-    v["referee_model"] = one("Referee model", d["referee_model"])
-    v["referee_effort"] = one("Referee effort", d["referee_effort"])
+    say("Referee: claude or codex (an LLM keeps the ledger), or jev (TypeSafe's decision model judges every")
+    say("claim with a confidence; needs $TYPESAFE_API_KEY; an LLM scribe writes the prose).")
+    v["referee"] = one("Referee", d["referee"], choices=["claude", "codex", "jev"])
+    if v["referee"] == "jev":
+        v["judge_model"] = one("Jev model", d["judge_model"])
+        v["scribe"] = one("Scribe CLI (claude | codex)", d["scribe"], choices=["claude", "codex"])
+        v["referee_model"] = one("Scribe model", "haiku")
+        v["referee_effort"] = one("Scribe effort", "low")
+    else:
+        v["referee_model"] = one("Referee model", d["referee_model"])
+        v["referee_effort"] = one("Referee effort", d["referee_effort"])
     say("\nDebate shape.")
     v["max_rounds"] = one("Max rounds", d["max_rounds"], cast=int)
     v["stable_rounds"] = one("Stop after this many rounds with no status change", d["stable_rounds"], cast=int)

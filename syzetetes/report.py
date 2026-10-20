@@ -123,7 +123,11 @@ def render_report(state: dict, agents: dict | None = None) -> str:
     out.append(f"| Date | {state['created'][:10]} |")
     out.append(f"| Claude | {cfg['claude_model']} (effort: {cfg['claude_effort']}) |")
     out.append(f"| Codex | {cfg['codex_model']} (effort: {cfg['codex_effort']}) |")
-    out.append(f"| Referee | {cfg['referee']} {cfg['referee_model']} (effort: {cfg['referee_effort']}) |")
+    if cfg.get("referee") == "jev":
+        out.append(f"| Referee | Jev ({cfg.get('judge_model', 'jev-latest')}) judges every claim; "
+                   f"{cfg.get('scribe', 'claude')} {cfg['referee_model']} writes the prose and synthesis |")
+    else:
+        out.append(f"| Referee | {cfg['referee']} {cfg['referee_model']} (effort: {cfg['referee_effort']}) |")
     out.append(f"| Rounds | {n_rounds} after opening positions |")
     out.append(f"| Ended because | {state.get('stop_reason') or 'in progress'} |")
     out.append(f"| Claims | {_counts(ledger)} |")
@@ -161,6 +165,11 @@ def render_report(state: dict, agents: dict | None = None) -> str:
                 out.append(f"- **Codex:** {c(k['codex_position'])}")
             if v.get("explanation"):
                 out.append(c(v["explanation"]))
+            if k.get("judge"):
+                j = k["judge"]
+                lean = {"claude": "Claude's case stronger", "codex": "Codex's case stronger", "even": "cases even"}.get(j["lean"], j["lean"])
+                out.append(f"\n*Judge: {status.replace('_', ' ')} with confidence {j['status_confidence']:.2f}; "
+                           f"{lean} ({j['lean_confidence']:.2f}); crux kind {j['crux_kind'].replace('_', ' ')}.*")
             if k.get("sources"):
                 out.append("\nSources: " + ", ".join(f"[{refs.num(s['url'])}]" for s in k["sources"]
                                                      if refs.norm(s["url"]) in refs.meta))

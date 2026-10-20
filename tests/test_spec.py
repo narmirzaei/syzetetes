@@ -83,7 +83,7 @@ def test_wizard_fills_template(tmp_path):
         "sonnet", "bogus", "low",             # claude model, bad effort then ok
         "", "medium", "codex", "", "",        # codex model default, effort, referee, model, effort
         "3", "", "n",                         # rounds, stable, research
-        "3,6", "2", "", "", "",               # pause menu: disputes + once after round 2; out_dir, timeout, retries
+        "3,7", "2", "", "", "",               # pause menu: disputes + once after round 2; out_dir, timeout, retries
     ])
     said = []
     v = sp.wizard(ask=lambda _: next(answers), say=said.append)
@@ -114,5 +114,5 @@ def test_wizard_pause_menu_zero_means_never_and_rejects_bad(tmp_path):
     answers = iter(["9", "0"])
     out = sp.pause_menu(lambda label, default="", **k: next(answers), said.append, ["referee", "stall"])
     assert out == [] and any("use numbers" in m for m in said)
-    answers = iter(["7", "open >= 1"])
+    answers = iter(["8", "open >= 1"])
     assert sp.pause_menu(lambda label, default="", **k: next(answers), said.append, []) == ["custom:open >= 1"]

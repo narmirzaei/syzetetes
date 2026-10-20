@@ -89,6 +89,7 @@ table.grid td.claim small{color:var(--muted)}
 td.cell{width:46px;height:30px;border-radius:5px;cursor:pointer;background:var(--c);opacity:.85;position:relative;text-align:center;color:#fff;font-size:11px;font-weight:600}
 td.cell:hover{opacity:1;outline:2px solid var(--accent)}
 td.cell.sel{opacity:1;outline:2px solid var(--ink)}
+td.cell.low{outline:2px dashed var(--human)}
 td.cell.changed::after{content:"";position:absolute;right:3px;top:3px;width:6px;height:6px;border-radius:50%;background:#fff}
 td.cell.none{background:transparent;cursor:default}
 td.cell.verdict{background:var(--line);color:var(--ink);font-weight:500}
@@ -133,7 +134,7 @@ button:hover{border-color:var(--accent)}
       <div class="legend">
         <span style="--c:var(--agreed)">agreed</span><span style="--c:var(--conceded)">conceded</span>
         <span style="--c:var(--disputed)">disputed</span><span style="--c:var(--atd)">agree to disagree</span>
-        <span style="--c:var(--open)">open</span><span class="quiet">· dot = status changed this round</span>
+        <span style="--c:var(--open)">open</span><span class="quiet">· dot = status changed this round</span><span class="quiet" id="judgeLegend" hidden>· faded = lower judge confidence · dashed = judge unsure (&lt;0.60)</span>
       </div>
       <div class="toolbar">
         <button id="onlyMoved">Show only claims that moved</button>
@@ -159,6 +160,15 @@ const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">"
 const md = s => esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(https?:\/\/[^\s)<\]]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
 const srcList = srcs => srcs && srcs.length ? `<ul class="srcs">${srcs.map(s=>`<li><a href="${esc(s.url||s)}" target="_blank" rel="noopener">${esc(s.title||s.url||s)}</a>${s.note?": "+esc(s.note):""}</li>`).join("")}</ul>` : "";
 const tag = st => `<span class="tag" style="--c:${COLOR[st]||'var(--open)'}">${LABEL[st]||st}</span>`;
+const pct = x => Math.round(x*100)+"%";
+function judgeMd(j){
+  if (!j) return "";
+  const probs = o => Object.entries(o||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${LABEL[k]||k} ${pct(v)}`).join(" · ");
+  return `<div class="block"><b>Judge (decision model)</b>
+    <div class="quiet">Status ${LABEL[j.status]||j.status}, confidence ${j.status_confidence.toFixed(2)}: ${probs(j.status_probabilities)}</div>
+    <div class="quiet">Stronger case: ${esc(j.lean)} (${j.lean_confidence.toFixed(2)}): ${probs(j.lean_probabilities)}</div>
+    <div class="quiet">Moved: ${esc(j.moved)} · crux kind: ${esc(j.crux_kind)} · repeats: Claude ${pct(j.repeats.claude)}, Codex ${pct(j.repeats.codex)} · human needed ${pct(j.human_needed)}</div></div>`;
+}
 
 const rounds = S.rounds;
 const claimIds = [];
@@ -181,10 +191,13 @@ document.getElementById("title").textContent = (S.code ? S.code+" — " : "") + 
 document.title = (S.code||"Syzetetes") + " review";
 document.getElementById("meta").innerHTML =
   `<b>Claude</b> ${esc(cfg.claude_model)} (${esc(cfg.claude_effort)}) · <b>Codex</b> ${esc(cfg.codex_model)} (${esc(cfg.codex_effort)}) · <b>Referee</b> ${esc(cfg.referee)} ${esc(cfg.referee_model)} · <b>Rounds</b> ${Math.max(0,...rounds.map(r=>r.round))} · <b>Ended</b> ${esc(S.stop_reason||"in progress")}` +
+  (cfg.referee==="jev" ? ` · <b>Judge</b> Jev ${esc(cfg.judge_model||"")}, scribe ${esc(cfg.scribe||"claude")} ${esc(cfg.referee_model)}` : "") +
   (S.derived_from ? ` · <b>Derived from</b> ${esc(S.derived_from)}` : "") +
   (S.context ? `<div style="margin-top:4px"><b>Starting context.</b> ${esc(S.context)}</div>` : "") +
   (S.sources.length ? `<div><b>Starting sources.</b> ${S.sources.map((s,i)=>`S${i+1}: `+(s.kind==="url"?`<a href="${esc(s.ref)}" target="_blank" rel="noopener">${esc(s.ref)}</a>`:esc(s.ref))).join(" · ")}</div>` : "") +
   (humanAt[-1] ? humanAt[-1].map(h=>`<div class="human"><b>${h.kind} (before the debate)</b> ${esc(h.text.replace(/^\([^)]*\)\s*/,""))}</div>`).join("") : "");
+
+if (rounds.some(r => r.ledger.claims.some(c => c.judge))) document.getElementById("judgeLegend").hidden = false;
 
 // bars
 const order = ["agreed","conceded","agree_to_disagree","disputed","open"];
@@ -214,7 +227,9 @@ function buildGrid(){
       const c = claimAt[id][r.round];
       if (!c) { h += `<td class="cell none"></td>`; continue; }
       const ch = prev && prev !== c.status ? " changed" : "";
-      h += `<td class="cell${ch}" style="--c:${COLOR[c.status]}" data-id="${id}" data-r="${r.round}" title="${id} after round ${r.round}: ${LABEL[c.status]}">${c.status==="agree_to_disagree"?"ATD":c.status.slice(0,3)}</td>`;
+      const conf = c.judge ? c.judge.status_confidence : null;
+      const low = conf !== null && conf < 0.6 ? " low" : "";
+      h += `<td class="cell${ch}${low}" style="--c:${COLOR[c.status]}${conf!==null?`;opacity:${0.45+0.55*conf}`:""}" data-id="${id}" data-r="${r.round}" title="${id} after round ${r.round}: ${LABEL[c.status]}${conf!==null?` (judge confidence ${conf.toFixed(2)})`:""}">${c.status==="agree_to_disagree"?"ATD":c.status.slice(0,3)}</td>`;
       prev = c.status;
     }
     const v = verdicts[id];
@@ -285,6 +300,7 @@ function showCell(id, rn){
     <div class="block"><span class="who claude">Claude</span><div class="md">${md(c.claude_position)}</div></div>
     <div class="block"><span class="who codex">Codex</span><div class="md">${md(c.codex_position)}</div></div>
     ${c.crux?`<div class="block"><b>Crux</b><div class="md">${md(c.crux)}</div></div>`:""}
+    ${judgeMd(c.judge)}
     ${srcList(c.sources)}
     <h3 style="margin-top:16px">What was said about it this round</h3>
     ${responsesFor(id, r) || `<p class="quiet">Neither side addressed it directly this round.</p>`}
@@ -303,6 +319,7 @@ function showClaim(id){
     h += `<div class="block"><b>${r.round===0?"Opening":"Round "+r.round}</b> ${tag(c.status)}${changed?` <span class="quiet">changed from ${LABEL[prev.status]}</span>`:""}
       ${prev&&prev.claim!==c.claim?`<div class="quiet">Reworded: ${esc(c.claim)}</div>`:""}
       ${c.crux?`<div class="quiet">Crux: ${esc(c.crux)}</div>`:""}
+      ${c.judge?`<div class="quiet">Judge: confidence ${c.judge.status_confidence.toFixed(2)}, lean ${esc(c.judge.lean)} (${c.judge.lean_confidence.toFixed(2)}), moved ${esc(c.judge.moved)}</div>`:""}
       ${responsesFor(id, r)}
       <p><button onclick="showCell('${id}',${r.round})">Positions after round ${r.round}</button></p></div>`;
     prev = c;

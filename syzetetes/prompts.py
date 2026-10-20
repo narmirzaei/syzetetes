@@ -65,6 +65,62 @@ Your duties:
 Output must match the JSON schema exactly."""
 
 
+def scribe_system(topic: str) -> str:
+    return f"""You are the Scribe of a structured debate between two AI analysts, Claude and Codex, on:
+
+Topic: {topic}
+
+A decision model has already judged every claim this round: its status, who moved, whether a side merely
+repeated itself, the kind of crux, and whether a human decision is needed. Those judgments are FIXED. You
+do not argue, add evidence, take sides, or second-guess them. You write the words around them:
+- each claim's current positions for both sides, in one or two neutral sentences each;
+- for disputed claims, the crux: the single fact or value judgement the disagreement turns on, consistent
+  with the given crux kind;
+- a 2-4 sentence round summary that reports exactly the status changes given, no others;
+- a nudge for any side flagged for repetition, naming the claim IDs and telling it to produce new evidence,
+  answer the evidence request, or concede;
+- if a human decision was requested, the precise question for the human with its options.
+Output must match the JSON schema exactly."""
+
+
+def scribe_prompt(topic: str, judged: list[dict], turns: dict, round_no: int, flags: dict, needs_human_ids: list[str],
+                  facts: list[str], opinions: list[str] = ()) -> str:
+    """`judged`: ledger claims with the judge block already applied. `flags`: who -> [claim ids repeated]."""
+    lines = []
+    for c in judged:
+        j = c.get("judge", {})
+        lines.append(f"- {c['id']} [{c['status']}] (moved: {j.get('moved', '?')}; crux kind: {j.get('crux_kind', '?')}) {c['claim']}")
+        if c.get("claude_position"):
+            lines.append(f"  - Claude before this round: {c['claude_position']}")
+        if c.get("codex_position"):
+            lines.append(f"  - Codex before this round: {c['codex_position']}")
+    parts = [f"# Task: write the ledger prose after round {round_no}", f"Topic: {topic}",
+             human_input_md(list(facts), list(opinions)),
+             "## Judged ledger (statuses and kinds are fixed)\n" + "\n".join(lines),
+             "## Repetition flagged by the judge\n" + (", ".join(f"{DISPLAY[w]}: {ids}" for w, ids in flags.items() if ids) or "none"),
+             "## Human decision requested on\n" + (", ".join(needs_human_ids) or "none")]
+    for who in ("claude", "codex"):
+        t = turns.get(who)
+        if t:
+            parts.append(f"## {DISPLAY[who]}'s turn this round\n{t['argument']}\n\n```json\n"
+                         f"{json.dumps({k: t[k] for k in ('responses', 'new_claims', 'evidence_requests')}, indent=1)}\n```")
+    parts.append("## Instructions\nWrite positions and crux for every claim listed, the round summary, nudges for the "
+                 "flagged side(s) only, and the human question only if one was requested.")
+    return "\n\n".join(p for p in parts if p)
+
+
+def verdict_table_md(ledger: dict) -> str:
+    rows = [c for c in ledger.get("claims", []) if c.get("judge")]
+    if not rows:
+        return ""
+    out = ["## Decision-model verdicts (Jev): status confidence and which case is stronger",
+           "| claim | status | confidence | stronger case | confidence |", "|---|---|---|---|---|"]
+    for c in rows:
+        j = c["judge"]
+        out.append(f"| {c['id']} | {c['status']} | {j.get('status_confidence', '')} | {j.get('lean', '')} | {j.get('lean_confidence', '')} |")
+    return "\n".join(out)
+
+
 def synthesis_system(topic: str) -> str:
     return f"""You are the editor writing the final report of a structured debate between two AI analysts,
 Claude and Codex, on:
@@ -181,6 +237,7 @@ def synthesis_prompt(topic: str, context: str, ledger: dict, closings: dict, mem
 Topic: {topic}
 {_ctx(context)}
 {human_input_md(list(facts), list(opinions))}
+{verdict_table_md(ledger)}
 ## Final ledger
 {_ledger_md(ledger)}
 

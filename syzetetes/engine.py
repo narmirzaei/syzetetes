@@ -17,6 +17,7 @@ from typing import Callable
 from . import prompts, schemas
 from .agents import Agent, make_agent
 from .config import Config
+from . import judge as judging
 from .report import render_report
 from .review import write_review
 from .runs import RunFiles, load_state, new_run, rename_slug, resolve
@@ -60,7 +61,7 @@ def unattended_checkpoint(question: str, options: list[str]) -> str:
 
 class Debate:
     def __init__(self, files: RunFiles, cfg: Config, checkpoint: Checkpoint | None = None,
-                 agents: dict[str, Agent] | None = None):
+                 agents: dict[str, Agent] | None = None, judge: "judging.Judge | None" = None):
         self.files = files
         self.dir = files.dir
         self.code = files.code
@@ -74,11 +75,13 @@ class Debate:
         if agents is not None:
             self.agents = agents
         else:
+            llm_ref = cfg.scribe if cfg.referee == "jev" else cfg.referee
             self.agents = {
                 "claude": make_agent("claude", cfg.claude_model, cfg.claude_effort, cfg.timeout_s, cfg.retries),
                 "codex": make_agent("codex", cfg.codex_model, cfg.codex_effort, cfg.timeout_s, cfg.retries),
-                "referee": make_agent(cfg.referee, cfg.referee_model, cfg.referee_effort, cfg.timeout_s, cfg.retries),
+                "referee": make_agent(llm_ref, cfg.referee_model, cfg.referee_effort, cfg.timeout_s, cfg.retries),
             }
+        self.judge = judge if judge is not None else (judging.make_judge("jev", cfg.judge_model) if cfg.referee == "jev" else None)
         self.state: dict = {}
 
     # ------------------------------------------------------------ lifecycle
@@ -262,6 +265,14 @@ class Debate:
     # ------------------------------------------------------------ referee & termination
 
     def _referee(self, ledger: dict | None, turns: dict, round_no: int, prev_ledger: dict | None) -> dict:
+        if self.judge is not None:
+            new = self._referee_judged(ledger, turns, round_no)
+            counts = _status_counts(new)
+            self._tx(f"\n### Referee after round {round_no}\n\n{new['round_summary']}\n\nStatus: {counts}\n\n"
+                     + _judge_md(new, ledger) + "\n")
+            log.info("ledger after round %d: %s", round_no, counts)
+            progress.ledger(round_no, _status_tally(new))
+            return new
         new = self.agents["referee"].ask(
             prompts.referee_system(self.state["topic"]),
             prompts.referee_prompt(self.state["topic"], ledger, turns, round_no, prev_ledger, self.state["facts"],
@@ -279,6 +290,76 @@ class Debate:
         log.info("ledger after round %d: %s", round_no, counts)
         progress.ledger(round_no, _status_tally(new))
         return new
+
+    def _referee_judged(self, ledger: dict | None, turns: dict, round_no: int) -> dict:
+        """Jev judges every claim; the scribe writes the prose; code owns IDs, statuses and flags."""
+        topic, facts, opinions = self.state["topic"], self.state["facts"], self.state.get("opinions", [])
+        claims = [dict(c) for c in (ledger["claims"] if ledger else [])]
+        # 1. New claims: dedup against existing ones with the judge, number them in code.
+        new_by: dict[str, str] = {}
+        for who in ("claude", "codex"):
+            for nc in turns.get(who, {}).get("new_claims", []):
+                existing = [(c["id"], c["claim"]) for c in claims]
+                dup = judging.judge_duplicate(self.judge, topic, nc["claim"], existing)
+                best = max(dup, key=dup.get) if dup else None
+                if best and dup[best] >= judging.DUPLICATE_THRESHOLD:
+                    target = next(c for c in claims if c["id"] == best)
+                    if target.get("origin") != who:
+                        target["origin"] = "both"
+                    log.info("%s's new claim merged into %s (p=%.2f)", prompts.DISPLAY[who], best, dup[best])
+                    continue
+                cid = f"K{len(claims) + 1}"
+                claims.append({"id": cid, "claim": nc["claim"], "origin": who, "status": "open",
+                               "claude_position": nc["reasoning"] if who == "claude" else "",
+                               "codex_position": nc["reasoning"] if who == "codex" else "",
+                               "crux": "", "sources": list(nc.get("sources", []))})
+                new_by[cid] = who
+        # 2. Judge every claim on this round's material only.
+        states = {}
+        for c in claims:
+            responses = {who: next((r for r in turns.get(who, {}).get("responses", []) if r["claim_id"] == c["id"]), None)
+                         for who in ("claude", "codex")}
+            requests = {who: next((q for q in turns.get(who, {}).get("evidence_requests", []) if q["claim_id"] == c["id"]), None)
+                        for who in ("claude", "codex")}
+            states[c["id"]] = judging.claim_state(topic, c, round_no, responses, requests, new_by.get(c["id"]), facts, opinions)
+            for who, r in responses.items():
+                if r:
+                    c["sources"] = (c.get("sources") or []) + list(r.get("sources", []))
+        verdicts = judging.judge_all(self.judge, states)
+        flags = {"claude": [], "codex": []}
+        needs_human_ids = []
+        for c in claims:
+            j = verdicts[c["id"]]
+            prev_status = c["status"] if ledger else None
+            c["status"] = j["status"]
+            c["judge"] = {**j, "previous_status": prev_status}
+            if c["status"] in ("disputed", "open"):
+                for who in ("claude", "codex"):
+                    if j["repeats"][who] >= 0.5 and round_no > 0:
+                        flags[who].append(c["id"])
+                if j["human_needed"] >= judging.HUMAN_THRESHOLD or (j["crux_kind"] == "value_judgement" and c["status"] == "disputed"):
+                    needs_human_ids.append(c["id"])
+        # 3. The scribe writes the words; fixed fields are re-applied afterwards.
+        prose = self.agents["referee"].ask(
+            prompts.scribe_system(topic),
+            prompts.scribe_prompt(topic, claims, turns, round_no, flags, needs_human_ids, facts, opinions),
+            schemas.SCRIBE, web=False, what=f"scribe round {round_no}")
+        by_id = {p["id"]: p for p in prose["claims"]}
+        for c in claims:
+            p = by_id.get(c["id"])
+            if p:
+                c["claude_position"], c["codex_position"] = p["claude_position"], p["codex_position"]
+                c["crux"] = p["crux"] if c["status"] == "disputed" else ""
+        return {
+            "claims": claims, "round_summary": prose["round_summary"],
+            "repetition_flags": [{"claim_id": cid, "who": who, "note": "maintained without new argument or evidence (judge)"}
+                                 for who, ids in flags.items() for cid in ids],
+            "nudge_claude": prose["nudge_claude"] if flags["claude"] else "",
+            "nudge_codex": prose["nudge_codex"] if flags["codex"] else "",
+            "needs_human": bool(needs_human_ids), "human_question": prose["human_question"] if needs_human_ids else "",
+            "settled": not any(c["status"] in ("disputed", "open") for c in claims),
+            "judged_by": self.judge.label,
+        }
 
     def _should_stop(self, ledger: dict, turns: dict) -> bool:
         rounds = self.state["rounds"]
@@ -324,6 +405,11 @@ class Debate:
                 out.append(f"{counts['disputed']} claim(s) still disputed.")
             elif t == "agree_to_disagree" and counts["agree_to_disagree"]:
                 out.append(f"{counts['agree_to_disagree']} claim(s) marked agree-to-disagree.")
+            elif t == "low_confidence":
+                shaky = [f"{c['id']} ({c['judge']['status_confidence']:.2f})" for c in ledger["claims"]
+                         if c.get("judge") and c["judge"]["status_confidence"] < judging.LOW_CONFIDENCE]
+                if shaky:
+                    out.append("The judge was unsure about: " + ", ".join(shaky) + ".")
             elif t.startswith("round:") and round_no == int(t[6:]):
                 out.append(f"You asked to be consulted after round {round_no}.")
             elif t.startswith("custom:"):
@@ -425,6 +511,20 @@ class Debate:
 
 def _statuses(ledger: dict) -> dict:
     return {c["id"]: c["status"] for c in ledger["claims"]}
+
+
+def _judge_md(new: dict, old: dict | None) -> str:
+    """One line per claim with the judge's verdict, for the transcript."""
+    lines = []
+    for c in new["claims"]:
+        j = c.get("judge")
+        if not j:
+            continue
+        prev = j.get("previous_status")
+        arrow = f"{prev}→{c['status']}" if prev and prev != c["status"] else c["status"]
+        lines.append(f"- {c['id']}: {arrow} ({j['status_confidence']:.2f}), moved {j['moved']}, "
+                     f"lean {j['lean']} ({j['lean_confidence']:.2f})")
+    return "Judge verdicts:\n" + "\n".join(lines) if lines else ""
 
 
 def _status_tally(ledger: dict) -> dict:
