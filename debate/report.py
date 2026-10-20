@@ -115,7 +115,8 @@ def render_report(state: dict, agents: dict | None = None) -> str:
     n_rounds = max((r["round"] for r in state["rounds"]), default=0)
 
     out: list[str] = []
-    out.append(f"# {topic}\n")
+    code = state.get("code")
+    out.append(f"# {code + ' — ' if code else ''}{topic}\n")
     out.append("_A structured debate between two AI models, with independent research, "
                "a bookkeeping referee, and a numbered reference list._\n")
     out.append("| | |\n|---|---|")

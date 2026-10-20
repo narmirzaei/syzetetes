@@ -1,7 +1,7 @@
 """Orchestration: research → opening → rounds (debater, debater, referee) → closing → synthesis → report.
 
-State is written to <run_dir>/state.json after every step so a run can be resumed. A live
-transcript.md is appended as the debate happens so the human can read along.
+State is written to <run_dir>/<code>.json after every step so a run can be resumed. A live
+<code>-01-transcript.md is appended as the debate happens so the human can read along (see runs.py).
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from . import prompts, schemas
 from .agents import Agent, make_agent
 from .config import Config
 from .report import render_report
+from .runs import RunFiles, new_run, resolve
 
 log = logging.getLogger("debate")
 
@@ -45,13 +46,15 @@ def unattended_checkpoint(question: str, options: list[str]) -> str:
 
 
 class Debate:
-    def __init__(self, run_dir: Path, cfg: Config, checkpoint: Checkpoint | None = None,
+    def __init__(self, files: RunFiles, cfg: Config, checkpoint: Checkpoint | None = None,
                  agents: dict[str, Agent] | None = None):
-        self.dir = run_dir
+        self.files = files
+        self.dir = files.dir
+        self.code = files.code
         self.cfg = cfg
         self.checkpoint = checkpoint or (unattended_checkpoint if cfg.unattended else console_checkpoint)
-        self.state_path = run_dir / "state.json"
-        self.transcript = run_dir / "transcript.md"
+        self.state_path = files.state
+        self.transcript = files.transcript
         if agents is not None:
             self.agents = agents
         else:
@@ -66,28 +69,27 @@ class Debate:
 
     @classmethod
     def create(cls, topic: str, context: str, cfg: Config, **kw) -> "Debate":
-        slug = re.sub(r"[^a-z0-9]+", "-", topic.lower()).strip("-")[:50] or "debate"
-        run_dir = Path(cfg.out_dir) / f"{datetime.now():%Y%m%d-%H%M}-{slug}"
-        run_dir.mkdir(parents=True, exist_ok=False)
-        d = cls(run_dir, cfg, **kw)
+        files = new_run(Path(cfg.out_dir), topic)
+        d = cls(files, cfg, **kw)
         d.state = {
-            "topic": topic, "context": context, "config": cfg.to_dict(),
+            "code": files.code, "topic": topic, "context": context, "config": cfg.to_dict(),
             "created": datetime.now().isoformat(timespec="seconds"),
             "phase": "research" if cfg.research else "opening",
             "memos": {}, "rounds": [], "rulings": [], "closings": {}, "synthesis": None,
             "stop_reason": "", "max_rounds": cfg.max_rounds,
         }
         d._save()
-        d._tx(f"# Debate transcript: {topic}\n\nStarted {d.state['created']}.\n"
+        d._tx(f"# {files.code} — Debate transcript: {topic}\n\nStarted {d.state['created']}.\n"
               f"Claude: {d.agents['claude'].label}. Codex: {d.agents['codex'].label}. "
               f"Referee: {d.agents['referee'].label}.\n")
         return d
 
     @classmethod
-    def resume(cls, run_dir: Path, **kw) -> "Debate":
-        state = json.loads((run_dir / "state.json").read_text())
+    def resume(cls, ref: str | Path, **kw) -> "Debate":
+        files = resolve(str(ref), Path(Config().out_dir))
+        state = json.loads(files.state.read_text())
         cfg = Config().apply_overrides(state["config"])
-        d = cls(run_dir, cfg, **kw)
+        d = cls(files, cfg, **kw)
         d.state = state
         d._tx(f"\n> Resumed {datetime.now():%Y-%m-%d %H:%M} at phase '{state['phase']}'.\n")
         return d
@@ -292,7 +294,7 @@ class Debate:
             f.write(md)
 
     def _write_report(self) -> Path:
-        out = self.dir / "report.md"
+        out = self.files.report
         out.write_text(render_report(self.state, self.agents))
         log.info("report written: %s", out)
         return out

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
+from .runs import list_runs, resolve
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -22,14 +23,27 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--note", default="", help="short extra context given inline")
     _model_opts(run)
 
-    res = sub.add_parser("resume", help="resume an interrupted debate from its run directory")
-    res.add_argument("run_dir")
+    res = sub.add_parser("resume", help="resume an interrupted debate")
+    _run_ref(res)
     res.add_argument("--unattended", action="store_true", default=None)
 
-    ren = sub.add_parser("render", help="re-render report.md from a run's saved state")
-    ren.add_argument("run_dir")
+    ren = sub.add_parser("render", help="re-render a run's report from its saved state")
+    _run_ref(ren)
+
+    ch = sub.add_parser("chat", help="ask questions about a finished debate, answered only from its report")
+    _run_ref(ch)
+    ch.add_argument("question", nargs="?", help="ask one question and exit (default: interactive)")
+
+    ls = sub.add_parser("list", help="list runs and their codes")
+    ls.add_argument("--out", dest="out_dir", help="directory holding run folders (default: ./debates)")
 
     sub.add_parser("config", help="print the effective configuration")
+    return p
+
+
+def _run_ref(p: argparse.ArgumentParser):
+    p.add_argument("run", help="run code (D0001) or path to the run folder")
+    p.add_argument("--out", dest="out_dir", help="directory holding run folders (default: ./debates)")
     return p
 
 
@@ -53,6 +67,14 @@ def _model_opts(p: argparse.ArgumentParser):
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _main(argv)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+
+def _main(argv: list[str] | None) -> int:
     args = _parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stderr)
@@ -65,16 +87,31 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{k} = {json.dumps(v)}")
         return 0
 
+    if args.cmd in ("render", "resume", "chat", "list"):
+        out_dir = Path(args.out_dir or load_config().out_dir)
+
+    if args.cmd == "list":
+        for f in list_runs(out_dir):
+            state = json.loads(f.state.read_text()) if f.state.exists() else {}
+            status = "done" if f.report.exists() else state.get("phase", "?")
+            print(f"{f.code}  {status:<10} {state.get('topic', f.dir.name)}")
+        return 0
+
     if args.cmd == "render":
-        run_dir = Path(args.run_dir)
-        state = json.loads((run_dir / "state.json").read_text())
-        d = Debate(run_dir, Config().apply_overrides(state["config"]), agents={})
+        files = resolve(args.run, out_dir)
+        state = json.loads(files.state.read_text())
+        d = Debate(files, Config().apply_overrides(state["config"]), agents={})
         d.state = state
         print(d._write_report())
         return 0
 
+    if args.cmd == "chat":
+        from .chat import one_shot, repl
+        files = resolve(args.run, out_dir)
+        return one_shot(files, args.question) if args.question else repl(files)
+
     if args.cmd == "resume":
-        d = Debate.resume(Path(args.run_dir))
+        d = Debate.resume(resolve(args.run, out_dir).dir)
         if args.unattended:
             d.cfg.unattended = True
             from .engine import unattended_checkpoint
@@ -92,15 +129,15 @@ def main(argv: list[str] | None = None) -> int:
     context = "\n\n".join(p.strip() for p in context_parts if p.strip())
 
     d = Debate.create(args.topic, context, cfg)
-    log.info("run directory: %s", d.dir)
+    log.info("run %s: %s", d.code, d.dir)
     log.info("Claude: %s | Codex: %s | Referee: %s",
              d.agents["claude"].label, d.agents["codex"].label, d.agents["referee"].label)
     try:
         report = d.run()
     except KeyboardInterrupt:
-        print(f"\nInterrupted. Resume with: debate resume {d.dir}", file=sys.stderr)
+        print(f"\nInterrupted. Resume with: debate resume {d.code}", file=sys.stderr)
         return 130
-    print(f"\nReport: {report}")
+    print(f"\nReport: {report}\nAsk about it: debate chat {d.code}")
     return 0
 
 

@@ -23,11 +23,37 @@ Markdown report of what they agreed on, what they still dispute, and why.
    `--unattended` disables this.
 6. **Closing and synthesis.** Each side writes a closing statement. The referee model writes the
    executive summary, per-claim verdicts, the strongest case for and against, and guidance for you.
-7. **Report.** `report.md` with every argument, the agreed / conceded / disputed / agree-to-disagree
+7. **Report.** `<code>-02-report.md` with every argument, the agreed / conceded / disputed / agree-to-disagree
    points, closing statements, research briefings, the full round-by-round transcript, and a numbered
    reference list. Inline URLs are replaced by `[n]` markers.
 
-While it runs, `transcript.md` in the run folder is appended live so you can read along.
+While it runs, `<code>-01-transcript.md` in the run folder is appended live so you can read along.
+
+## Run folders and codes
+
+Every run gets a sequential code, `D0001`, `D0002`, ... The code is the handle for every other command.
+
+```
+debates/
+  D0001-is-remote-work-net-positive-for-early-stage/
+    D0001.json               state (resumable)
+    D0001-01-transcript.md   live log
+    D0001-02-report.md       final referenced report
+    D0001-03-chat.md         Q&A log, written by `debate chat`
+```
+
+## Ask questions about a finished debate
+
+```
+.venv/bin/debate chat D0001                       # interactive
+.venv/bin/debate chat D0001 "Which claims stayed disputed and why?"
+```
+
+Answers are grounded on the report text only: the whole report is put in the prompt, the model is told
+to answer from it or say the debate does not cover the question, and every answer carries verbatim
+excerpts. It uses the smallest Claude model (haiku), effort low, extended thinking disabled, no tools
+and no web. Neither CLI exposes a sampling temperature, so this is as deterministic as they allow.
+Each session is appended to `D0001-03-chat.md`.
 
 ## Install
 
@@ -45,11 +71,13 @@ Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex 
 .venv/bin/debate run "..." --context notes.md --note "I am writing a 2000-word essay for engineers."
 .venv/bin/debate run "..." --claude-model opus --claude-effort xhigh --codex-effort high --max-rounds 10
 .venv/bin/debate run "..." --referee codex --referee-model gpt-6.1-sol    # let Codex referee instead
-.venv/bin/debate resume debates/20261020-1530-is-remote-work-net-positive
+.venv/bin/debate list
+.venv/bin/debate resume D0003
+.venv/bin/debate chat D0003
 .venv/bin/debate config
 ```
 
-Ctrl-C at any time; `debate resume <run dir>` picks up from the last saved step.
+Ctrl-C at any time; `debate resume <code>` picks up from the last saved step.
 
 ## Configuration
 

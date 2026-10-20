@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 import tempfile
@@ -30,8 +31,10 @@ class Agent(ABC):
     model: str
     effort: str
 
-    def __init__(self, model: str, effort: str, timeout_s: int = 1800, retries: int = 3):
+    def __init__(self, model: str, effort: str, timeout_s: int = 1800, retries: int = 3,
+                 extra_env: dict[str, str] | None = None):
         self.model, self.effort, self.timeout_s, self.retries = model, effort, timeout_s, retries
+        self.extra_env = extra_env or {}
 
     @property
     def label(self) -> str:
@@ -81,7 +84,8 @@ class ClaudeAgent(Agent):
         ]
         if web:
             cmd += ["--allowedTools", "WebSearch", "WebFetch"]
-        r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=self.timeout_s)
+        env = {**os.environ, **self.extra_env}
+        r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=self.timeout_s, env=env)
         if r.returncode != 0:
             raise AgentError(f"claude exit {r.returncode}: {_claude_error(r.stdout, r.stderr)}")
         data = json.loads(r.stdout)
@@ -141,6 +145,7 @@ class CodexAgent(Agent):
         return data
 
 
-def make_agent(kind: str, model: str, effort: str, timeout_s: int, retries: int) -> Agent:
+def make_agent(kind: str, model: str, effort: str, timeout_s: int, retries: int,
+               extra_env: dict[str, str] | None = None) -> Agent:
     cls = {"claude": ClaudeAgent, "codex": CodexAgent}[kind]
-    return cls(model, effort, timeout_s, retries)
+    return cls(model, effort, timeout_s, retries, extra_env=extra_env)

@@ -84,7 +84,8 @@ def test_settles_and_reports(tmp_path):
     assert "## Executive summary" in md and "## Points conceded" in md and "## Points of agreement" in md
     assert "## References" in md and "1. Example paper. <https://example.org/paper>" in md
     assert "[paper](https" not in md and "paper [1]" in md and "[2]" in md
-    assert (d.dir / "transcript.md").exists() and (d.dir / "state.json").exists()
+    assert d.files.transcript.exists() and d.files.state.exists()
+    assert d.code == "D0001" and d.dir.name.startswith("D0001-")
 
 
 def test_stall_unattended_stops(tmp_path):
@@ -110,7 +111,7 @@ def test_human_ruling_and_stop(tmp_path):
     assert len(seen) == 2
     assert d.state["rulings"] == ["(after round 1) Treat K1 as a value judgement."]
     assert d.state["stop_reason"] == "Human stopped the debate after round 2."
-    assert "Moderator rulings" in (d.dir / "report.md").read_text()
+    assert "Moderator rulings" in d.files.report.read_text()
 
 
 def test_round_cap_extend(tmp_path):
@@ -132,7 +133,7 @@ def test_resume(tmp_path):
     d2 = Debate.resume(d.dir, agents=agents)
     report = d2.run()
     assert d2.state["phase"] == "done" and report.exists()
-    assert "Resumed" in (d.dir / "transcript.md").read_text()
+    assert "Resumed" in d.files.transcript.read_text()
 
 
 def test_validator():
