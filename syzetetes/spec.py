@@ -92,6 +92,36 @@ PAUSE_HELP = {"never": "run through; deadlocks become agree-to-disagree",
               "always": "after every round"}
 
 
+PAUSE_WHEN_PRESETS = [
+    ("no",      "No extra situations",                                              ""),
+    ("atd",     "A side wants to agree to disagree on a claim (let me weigh in first)", "agree_to_disagree >= 1"),
+    ("stall",   "The debate is starting to stall (a round passed with no change)",  "unchanged >= 1 and disputed > 0"),
+    ("round",   "Once, at a specific round",                                        "round == {n}"),
+    ("many",    "Several claims are still disputed late in the debate",            "disputed >= {n} and round >= 2"),
+    ("custom",  "Something else (I will type the condition myself)",               None),
+]
+
+
+def pause_when_menu(one, say, current: str) -> str:
+    """Ask for the extra pause situation in plain words; return the expression the engine evaluates."""
+    say("Besides that, is there a specific situation where it should stop and ask you?")
+    for i, (_, label, _) in enumerate(PAUSE_WHEN_PRESETS, 1):
+        say(f"  {i}. {label}")
+    default = "1" if not current else str(len(PAUSE_WHEN_PRESETS))
+    pick = one("Choose a number", default, choices=[str(i) for i in range(1, len(PAUSE_WHEN_PRESETS) + 1)])
+    key, _, expr = PAUSE_WHEN_PRESETS[int(pick) - 1]
+    if key == "round":
+        return expr.format(n=one("Which round", 3, cast=int))
+    if key == "many":
+        return expr.format(n=one("How many disputed claims", 2, cast=int))
+    if key == "custom":
+        say("  A condition over these counts after each round: round, disputed, open, agreed, conceded,")
+        say("  agree_to_disagree, total, unchanged (rounds in a row with no change). It pauses when true.")
+        say('  Example: "disputed >= 2 and round >= 2"')
+        return one("Condition", current)
+    return expr
+
+
 def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
     """Interactive questionnaire. Enter keeps the default shown in brackets; lists end with a blank line."""
     d = {**Config().to_dict(), **(defaults or {})}
@@ -155,8 +185,7 @@ def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
     for k, h in PAUSE_HELP.items():
         say(f"  {k:<9}{h}")
     v["pause"] = one("Pause", d["pause"], choices=list(PAUSE_HELP))
-    v["pause_when"] = one("Also pause when (expression over round, disputed, open, agreed, conceded, "
-                          "agree_to_disagree, total, unchanged; blank for none)", d["pause_when"])
+    v["pause_when"] = pause_when_menu(one, say, d["pause_when"])
     v["out_dir"] = one("Output directory", d["out_dir"])
     v["timeout_s"] = one("Seconds per model call", d["timeout_s"], cast=int)
     v["retries"] = one("Retries per call", d["retries"], cast=int)

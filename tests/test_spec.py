@@ -83,7 +83,7 @@ def test_wizard_fills_template(tmp_path):
         "sonnet", "bogus", "low",             # claude model, bad effort then ok
         "", "medium", "codex", "", "",        # codex model default, effort, referee, model, effort
         "3", "", "n",                         # rounds, stable, research
-        "disputes", "round == 2", "", "", "", # pause, pause_when, out_dir, timeout, retries
+        "disputes", "4", "2", "", "", "",     # pause, pause-when menu: 4 = at a round, round 2; out_dir, timeout, retries
     ])
     said = []
     v = sp.wizard(ask=lambda _: next(answers), say=said.append)
@@ -102,7 +102,7 @@ def test_wizard_fills_template(tmp_path):
 
 def test_wizard_rerun_branch():
     answers = iter(["y", "D0001", "2", "n", "", "", "", "", "a fact", "",
-                    "", "", "", "", "", "", "", "", "", "y", "", "", "", "", ""])
+                    "", "", "", "", "", "", "", "", "", "y", "", "", "", "", "", ""])
     v = sp.wizard(ask=lambda _: next(answers), say=lambda *_: None)
     d = tomllib.loads(sp.template(v))
     assert d["rerun"] == {"from": "D0001", "keep_rounds": 2, "redo_openings": False} and d["facts"] == ["a fact"]
