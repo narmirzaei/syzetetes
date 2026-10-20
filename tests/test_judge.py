@@ -120,8 +120,9 @@ def test_config_jev_defaults_and_validation(monkeypatch, tmp_path):
         load_config({"referee": "gemini"})
 
 
-def test_jev_http_client(monkeypatch):
+def test_jev_http_client(monkeypatch, tmp_path):
     monkeypatch.delenv(J.ENV_KEY, raising=False)
+    monkeypatch.chdir(tmp_path)                 # no .env.local here
     with pytest.raises(J.JudgeError):
         J.JevJudge()
     sent = {}
