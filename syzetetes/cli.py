@@ -11,6 +11,7 @@ from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
 from .runs import list_runs, load_sources, load_state, resolve
 from .spec import DEFAULT_NAME, config_overrides, inputs, load_spec, template, wizard
+from .ui import progress, setup_logging
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -114,8 +115,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _main(argv: list[str] | None) -> int:
     args = _parser().parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
-                        datefmt="%H:%M:%S", stream=sys.stderr)
+    setup_logging()
     if args.cmd == "init":
         path = Path(args.path)
         if path.exists() and not args.force:
@@ -231,11 +231,15 @@ def _drive(d: Debate) -> int:
     log.info("Claude: %s | Codex: %s | Referee: %s | pause: %s%s",
              d.agents["claude"].label, d.agents["codex"].label, d.agents["referee"].label,
              d.cfg.pause, f" or when {d.cfg.pause_when!r}" if d.cfg.pause_when else "")
+    progress.start()
     try:
         report = d.run()
     except KeyboardInterrupt:
+        progress.stop()
         print(f"\nInterrupted. Resume with: syzetetes resume {d.code}", file=sys.stderr)
         return 130
+    finally:
+        progress.stop()
     print(f"\nReport: {report}\nReview how it got there: syzetetes review {d.code}\nAsk about it: syzetetes chat {d.code}")
     return 0
 

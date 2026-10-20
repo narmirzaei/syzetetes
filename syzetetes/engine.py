@@ -21,6 +21,7 @@ from .report import render_report
 from .review import write_review
 from .runs import RunFiles, load_state, new_run, resolve
 from .spec import effective_spec
+from .ui import progress
 
 log = logging.getLogger("syzetetes")
 
@@ -29,6 +30,14 @@ Checkpoint = Callable[[str, list[str]], str]
 
 
 def console_checkpoint(question: str, options: list[str]) -> str:
+    progress.pause()
+    try:
+        return _console_checkpoint(question, options)
+    finally:
+        progress.resume()
+
+
+def _console_checkpoint(question: str, options: list[str]) -> str:
     print("\n" + "=" * 78 + "\nHUMAN CHECKPOINT\n" + "=" * 78)
     print(question)
     print("\nOptions: " + " | ".join(options))
@@ -164,6 +173,7 @@ class Debate:
     def _research(self):
         topic, ctx = self.state["topic"], self.state["context"]
         log.info("phase: research (both in parallel)")
+        progress.set_phase("Research")
         memos = self._both(lambda who: self.agents[who].ask(
             prompts.debater_system(who, topic), prompts.research_prompt(topic, ctx, self.state.get("sources", [])),
             schemas.RESEARCH, web=True, what="research"))
@@ -177,6 +187,7 @@ class Debate:
     def _opening(self):
         topic, ctx, memos = self.state["topic"], self.state["context"], self.state["memos"]
         log.info("phase: opening positions (both in parallel)")
+        progress.set_phase("Openings")
         turns = self._both(lambda who: self.agents[who].ask(
             prompts.debater_system(who, topic), prompts.opening_prompt(topic, ctx, memos, self.state.get("sources", [])),
             schemas.TURN, web=True, what="opening"))
@@ -199,6 +210,7 @@ class Debate:
             first = "claude" if r % 2 == 1 else "codex"
             second = prompts.OTHER[first]
             log.info("phase: round %d/%d, %s speaks first", r, self.state["max_rounds"], first)
+            progress.set_phase(f"Round {r}/{self.state['max_rounds']}")
             turns: dict = {}
             for who in (first, second):
                 opp = prompts.OTHER[who]
@@ -222,6 +234,7 @@ class Debate:
     def _closing(self):
         topic, ledger = self.state["topic"], self.state["rounds"][-1]["ledger"]
         log.info("phase: closing statements")
+        progress.set_phase("Closings")
         closings = self._both(lambda who: self.agents[who].ask(
             prompts.debater_system(who, topic), prompts.closing_prompt(topic, ledger),
             schemas.CLOSING, web=False, what="closing"))
@@ -233,6 +246,7 @@ class Debate:
     def _synthesis(self):
         s = self.state
         log.info("phase: synthesis")
+        progress.set_phase("Synthesis")
         s["synthesis"] = self.agents["referee"].ask(
             prompts.synthesis_system(s["topic"]),
             prompts.synthesis_prompt(s["topic"], s["context"], s["rounds"][-1]["ledger"], s["closings"], s["memos"],
@@ -258,6 +272,7 @@ class Debate:
         counts = _status_counts(new)
         self._tx(f"\n### Referee after round {round_no}\n\n{new['round_summary']}\n\nStatus: {counts}\n")
         log.info("ledger after round %d: %s", round_no, counts)
+        progress.ledger(round_no, _status_tally(new))
         return new
 
     def _should_stop(self, ledger: dict, turns: dict) -> bool:
@@ -364,6 +379,7 @@ class Debate:
         self.state["stop_reason"] = reason
         self._tx(f"\n> **Debate ended:** {reason}\n")
         log.info("stop: %s", reason)
+        progress.set_phase("Wrapping up")
         return True
 
     # ------------------------------------------------------------ plumbing

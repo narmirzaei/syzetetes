@@ -18,6 +18,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from .schemas import SchemaError, validate
+from .ui import progress
 
 log = logging.getLogger("syzetetes")
 
@@ -49,6 +50,7 @@ class Agent(ABC):
                 f"{prompt}\n\n# Correction\nYour previous answer was rejected because it did not match the "
                 f"required output schema:\n{last_err}\nAnswer again, fully, matching the schema exactly."
             )
+            progress.task_start(self.label, what if attempt == 1 else f"{what} (retry {attempt})")
             try:
                 out = self._run(system, p, schema, web)
                 errs = validate(out, schema)
@@ -60,6 +62,8 @@ class Agent(ABC):
                 last_err = str(e)[:2000]
                 log.warning("%s · %s · attempt %d/%d failed after %.0fs: %s",
                             self.label, what, attempt, self.retries, time.time() - t0, last_err[:300])
+            finally:
+                progress.task_end(self.label)
         raise AgentError(f"{self.label} failed {what} after {self.retries} attempts: {last_err}")
 
     @abstractmethod

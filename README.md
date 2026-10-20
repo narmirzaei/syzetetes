@@ -93,7 +93,9 @@ syzetetes run "Is remote work net positive for early-stage startups?"
    agree-to-disagree points, closing statements, briefings, the full transcript and a numbered reference
    list; and an interactive HTML review of how the ledger moved.
 
-While it runs, the transcript file in the run folder is appended live so you can read along.
+While it runs, the terminal shows a live status line (phase, round, who is thinking and for how long)
+and a coloured ledger bar after every referee pass; the transcript file in the run folder is appended
+live so you can read along. Redirect stderr to a file and the display degrades to plain log lines.
 
 ## The spec file
 
@@ -431,6 +433,7 @@ syzetetes/
   schemas.py   JSON schemas and a small validator
   report.py    Markdown report with numbered references
   review.py    interactive HTML review
+  ui.py        terminal status line and ledger bar
   chat.py      grounded Q&A over a finished report
   runs.py      run codes, folder layout, source loading
   config.py    defaults, user config file, overrides
