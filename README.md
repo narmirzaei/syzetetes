@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-wordmark-dark.svg">
+    <img src="assets/logo-wordmark.svg" alt="Syzetetes" width="236">
+  </picture>
+</p>
+
 # Syzetetes
 
 *Syzetetes* (Greek συζητητής, "one who investigates together") makes two different AI models research a
