@@ -164,3 +164,10 @@ def test_merge_choice_averages_orderings():
     choice, conf, probs = J._merge_choice(a, b)
     assert choice == "y" and conf == 0.7 and probs == {"x": 0.45, "y": 0.55}
     assert J._trim("a" * 10, 4) == "aaaa […]"
+
+
+def test_key_from_dotenv(monkeypatch, tmp_path):
+    monkeypatch.delenv(J.ENV_KEY, raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env.local").write_text('OTHER=1\nTYPESAFE_API_KEY="abc"\n')
+    assert J.JevJudge().api_key == "abc"

@@ -21,6 +21,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 
@@ -62,6 +63,19 @@ class JudgeError(RuntimeError):
     pass
 
 
+def _dotenv_key() -> str:
+    """Fallback: TYPESAFE_API_KEY=... in ./.env.local or ./.env (never committed; both are gitignored)."""
+    for name in (".env.local", ".env"):
+        try:
+            for line in Path(name).read_text().splitlines():
+                k, _, v = line.partition("=")
+                if k.strip() == ENV_KEY:
+                    return v.strip().strip('"').strip("'")
+        except OSError:
+            continue
+    return ""
+
+
 class Judge(ABC):
     """Anything that answers typed questions about a state. Jev is the real one; tests use a fake."""
     label = "judge"
@@ -74,7 +88,7 @@ class Judge(ABC):
 class JevJudge(Judge):
     def __init__(self, model: str = DEFAULT_MODEL, api_key: str | None = None, timeout_s: int = 60, retries: int = 4):
         self.model = model
-        self.api_key = api_key or os.environ.get(ENV_KEY, "")
+        self.api_key = api_key or os.environ.get(ENV_KEY, "") or _dotenv_key()
         self.timeout_s, self.retries = timeout_s, retries
         self.label = f"Jev ({model})"
         self.calls = 0

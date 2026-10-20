@@ -338,7 +338,7 @@ pause_on = ["referee", "stall", "low_confidence"]   # also stop when Jev is unsu
 ```
 
 ```
-export TYPESAFE_API_KEY=...   # from https://console.typesafe.ai/keys
+export TYPESAFE_API_KEY=...   # from https://console.typesafe.ai/keys; or put it in ./.env.local
 syzetetes run "..." --referee jev
 syzetetes rerun D0001 --keep-rounds 0 --referee jev   # re-judge an existing debate's rounds from the openings
 ```
