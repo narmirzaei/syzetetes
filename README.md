@@ -60,8 +60,8 @@ below assume `.venv/bin` is on your PATH, or prefix each command with `.venv/bin
 ## Five-minute tour
 
 ```
-syzetetes init                 # writes syzetetes.toml, a commented template
-$EDITOR syzetetes.toml         # fill in 'topic'; everything else is optional
+syzetetes init -i              # asks you everything and writes a ready-to-run syzetetes.toml
+syzetetes init                 # or: write the blank commented template and fill it in by hand
 syzetetes run syzetetes.toml   # research → openings → rounds → closings → synthesis → report
 syzetetes review D0001         # interactive page: how every claim moved until the synthesis
 syzetetes chat D0001           # ask questions, answered only from the report
@@ -97,7 +97,9 @@ While it runs, the transcript file in the run folder is appended live so you can
 
 ## The spec file
 
-Everything a run needs lives in one TOML file. `syzetetes init` writes a commented template; every key is
+Everything a run needs lives in one TOML file. `syzetetes init` writes a commented template, and
+`syzetetes init --interactive` (`-i`) walks you through every setting with its default and writes the
+filled-in file, including the replay section if you choose to derive from an earlier run. Every key is
 optional except `topic`, and every CLI flag has a key here. A flag given on the command line overrides the
 file. (TOML rather than YAML because Python reads it with no third-party dependency, and it has comments.)
 
@@ -366,7 +368,7 @@ debates/
 ## Commands
 
 ```
-syzetetes init [FILE]             write a commented spec template (default syzetetes.toml)
+syzetetes init [FILE] [-i]        write a spec template; -i asks for every setting and fills it in
 syzetetes run TOPIC|SPEC.toml     start a debate; flags override the spec
 syzetetes resume CODE             continue an interrupted run from its last saved step
 syzetetes rerun CODE [...]        replay a finished run from a chosen round with new input

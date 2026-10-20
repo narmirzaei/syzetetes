@@ -24,59 +24,143 @@ DEBATE_KEYS = ("max_rounds", "stable_rounds", "research", "pause", "pause_when",
 RERUN_KEYS = ("from", "keep_rounds", "redo_openings")
 
 
-def template() -> str:
-    c = Config()
+def template(v: dict | None = None) -> str:
+    """The commented spec. With `v`, the values are filled in (from the interactive wizard)."""
+    c = {**Config().to_dict(), "topic": "", "note": "", "context_files": [], "sources": [], "opinions": [],
+         "facts": [], "rerun": None, **(v or {})}
+    j = lambda x: json.dumps(x, ensure_ascii=False)
+    lst = lambda xs: "[" + ", ".join(j(x) for x in xs) + "]" if len(xs) <= 1 else \
+        "[\n" + "".join(f"  {j(x)},\n" for x in xs) + "]"
+    rr = c["rerun"]
+    rerun = (f'[rerun]\nfrom = {j(rr["from"])}\nkeep_rounds = {int(rr.get("keep_rounds", 0))}\n'
+             f'redo_openings = {j(bool(rr.get("redo_openings", False)))}\n') if rr else \
+        '# [rerun]\n# from = "D0001"                 # run code or folder\n' \
+        '# keep_rounds = 0                # inherit rounds 0..N (0 = openings only)\n' \
+        '# redo_openings = false          # true: inherit research only; adding sources implies this\n'
     return f'''# Syzetetes debate spec. Fill it in, then:  syzetetes run {DEFAULT_NAME}
 # Every CLI flag has a key here; a flag given on the command line overrides the file.
 # Delete any key you do not need: defaults come from ~/.config/syzetetes/config.toml, then built-ins.
 
 # ------------------------------------------------------------------ the question
-topic = ""                       # required. The question or proposition to debate.
+topic = {j(c["topic"])}                       # required. The question or proposition to debate.
 
 # ------------------------------------------------------------------ starting point (all optional)
-note = ""                        # short inline context, e.g. who you are writing for and why
-context_files = []               # files whose text is given to both sides as context, e.g. ["notes.md"]
-sources = []                     # URLs or local files both sides must read, cite and check
+note = {j(c["note"])}                        # short inline context, e.g. who you are writing for and why
+context_files = {lst(c["context_files"])}               # files whose text is given to both sides as context, e.g. ["notes.md"]
+sources = {lst(c["sources"])}                     # URLs or local files both sides must read, cite and check
                                  # e.g. ["https://example.org/paper", "~/papers/jones-2022.txt"]
-opinions = []                    # your views, NOT binding: the debaters must engage with them, may disagree
+opinions = {lst(c["opinions"])}                    # your views, NOT binding: the debaters must engage with them, may disagree
                                  # e.g. ["I suspect pensions are the real issue, not fertility."]
-facts = []                       # binding: treated as true for this debate
+facts = {lst(c["facts"])}                       # binding: treated as true for this debate
                                  # e.g. ["Scope is economics only; ignore climate arguments."]
 
 # ------------------------------------------------------------------ models
 [models]
-claude_model = "{c.claude_model}"            # opus | sonnet | haiku | fable | full model id
-claude_effort = "{c.claude_effort}"           # low | medium | high | xhigh | max
-codex_model = "{c.codex_model}"       # any model your ChatGPT plan allows
-codex_effort = "{c.codex_effort}"            # low | medium | high | xhigh | ultra
-referee = "{c.referee}"               # claude | codex: which CLI keeps the ledger and writes the synthesis
-referee_model = "{c.referee_model}"
-referee_effort = "{c.referee_effort}"
+claude_model = {j(c["claude_model"])}            # opus | sonnet | haiku | fable | full model id
+claude_effort = {j(c["claude_effort"])}           # low | medium | high | xhigh | max
+codex_model = {j(c["codex_model"])}       # any model your ChatGPT plan allows
+codex_effort = {j(c["codex_effort"])}            # low | medium | high | xhigh | ultra
+referee = {j(c["referee"])}               # claude | codex: which CLI keeps the ledger and writes the synthesis
+referee_model = {j(c["referee_model"])}
+referee_effort = {j(c["referee_effort"])}
 
 # ------------------------------------------------------------------ debate shape and human pauses
 [debate]
-max_rounds = {c.max_rounds}
-stable_rounds = {c.stable_rounds}                # stop after this many rounds with no status change
-research = {json.dumps(c.research)}                  # false: skip the web-research phase
-pause = "{c.pause}"               # never | referee | disputes | always
+max_rounds = {int(c["max_rounds"])}
+stable_rounds = {int(c["stable_rounds"])}                # stop after this many rounds with no status change
+research = {j(bool(c["research"]))}                  # false: skip the web-research phase
+pause = {j(c["pause"])}               # never | referee | disputes | always
                                  #   never    run through; deadlocks become agree-to-disagree
                                  #   referee  only when the referee asks or the ledger stalls
                                  #   disputes after every round that still has a disputed claim
                                  #   always   after every round
-pause_when = ""                  # extra condition, e.g. "disputed >= 2 and round >= 2"
+pause_when = {j(c["pause_when"])}                  # extra condition, e.g. "disputed >= 2 and round >= 2"
                                  # names: round, disputed, open, agreed, conceded, agree_to_disagree, total, unchanged
-out_dir = "{c.out_dir}"              # where run folders go
-timeout_s = {c.timeout_s}                 # seconds per model call
-retries = {c.retries}
+out_dir = {j(c["out_dir"])}              # where run folders go
+timeout_s = {int(c["timeout_s"])}                 # seconds per model call
+retries = {int(c["retries"])}
 
 # ------------------------------------------------------------------ replay a finished run (optional)
-# Uncomment to derive from an earlier run instead of starting fresh: research (and the kept rounds)
-# are inherited; new opinions/facts/sources above are injected at that point and the rest is replayed.
-# [rerun]
-# from = "D0001"                 # run code or folder
-# keep_rounds = 0                # inherit rounds 0..N (0 = openings only)
-# redo_openings = false          # true: inherit research only; adding sources implies this
-'''
+# Derive from an earlier run instead of starting fresh: research (and the kept rounds) are inherited;
+# new opinions/facts/sources above are injected at that point and the rest is replayed.
+{rerun}'''
+
+
+PAUSE_HELP = {"never": "run through; deadlocks become agree-to-disagree",
+              "referee": "only when the referee asks or the ledger stalls (default)",
+              "disputes": "after every round that still has a disputed claim: you tie-break each one",
+              "always": "after every round"}
+
+
+def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
+    """Interactive questionnaire. Enter keeps the default shown in brackets; lists end with a blank line."""
+    d = {**Config().to_dict(), **(defaults or {})}
+    v: dict = {}
+
+    def one(label, default="", choices=None, required=False, cast=str):
+        while True:
+            raw = ask(f"{label}{' [' + str(default) + ']' if default != '' else ''}: ").strip()
+            if not raw:
+                if required and default == "":
+                    say("  (required)")
+                    continue
+                return default
+            if choices and raw not in choices:
+                say(f"  choose one of: {', '.join(choices)}")
+                continue
+            try:
+                return cast(raw)
+            except ValueError:
+                say(f"  expected {cast.__name__}")
+
+    def many(label):
+        say(f"{label} (one per line, blank line to finish)")
+        out = []
+        while True:
+            raw = ask("  - ").strip()
+            if not raw:
+                return out
+            out.append(raw)
+
+    def yes(label, default):
+        return one(label + " (y/n)", "y" if default else "n", choices=["y", "n", "yes", "no"]) in ("y", "yes")
+
+    say("Syzetetes: let's set up a debate. Enter keeps the default in [brackets].\n")
+    if yes("Replay a finished run instead of starting fresh?", False):
+        v["rerun"] = {"from": one("Run code or folder to replay", required=True),
+                      "keep_rounds": one("Inherit rounds 0..N; 0 keeps only the openings", 0, cast=int),
+                      "redo_openings": yes("Redo the openings too (keep research only)?", False)}
+        say("  New opinions, facts and sources below are injected at that point.\n")
+    else:
+        v["topic"] = one("Topic: the question or proposition to debate", required=True)
+    say("\nStarting point (all optional).")
+    v["note"] = one("Short context: who you are, why you ask, who reads the result")
+    v["context_files"] = many("Context files (paths)")
+    v["sources"] = many("Sources both sides must read and cite (URLs or files)")
+    v["opinions"] = many("Your opinions (not binding; the debaters must engage with them)")
+    v["facts"] = many("Facts (binding; treated as true for this debate)")
+    say("\nModels.")
+    v["claude_model"] = one("Claude model (opus | sonnet | haiku | fable | id)", d["claude_model"])
+    v["claude_effort"] = one("Claude effort", d["claude_effort"], choices=["low", "medium", "high", "xhigh", "max"])
+    v["codex_model"] = one("Codex model", d["codex_model"])
+    v["codex_effort"] = one("Codex effort", d["codex_effort"], choices=["low", "medium", "high", "xhigh", "ultra"])
+    v["referee"] = one("Referee CLI (claude | codex)", d["referee"], choices=["claude", "codex"])
+    v["referee_model"] = one("Referee model", d["referee_model"])
+    v["referee_effort"] = one("Referee effort", d["referee_effort"])
+    say("\nDebate shape.")
+    v["max_rounds"] = one("Max rounds", d["max_rounds"], cast=int)
+    v["stable_rounds"] = one("Stop after this many rounds with no status change", d["stable_rounds"], cast=int)
+    v["research"] = yes("Web research phase?", d["research"])
+    say("When should it pause and ask you?")
+    for k, h in PAUSE_HELP.items():
+        say(f"  {k:<9}{h}")
+    v["pause"] = one("Pause", d["pause"], choices=list(PAUSE_HELP))
+    v["pause_when"] = one("Also pause when (expression over round, disputed, open, agreed, conceded, "
+                          "agree_to_disagree, total, unchanged; blank for none)", d["pause_when"])
+    v["out_dir"] = one("Output directory", d["out_dir"])
+    v["timeout_s"] = one("Seconds per model call", d["timeout_s"], cast=int)
+    v["retries"] = one("Retries per call", d["retries"], cast=int)
+    return v
 
 
 def load_spec(path: Path) -> dict:

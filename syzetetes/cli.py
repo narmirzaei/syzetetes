@@ -10,7 +10,7 @@ from pathlib import Path
 from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
 from .runs import list_runs, load_sources, load_state, resolve
-from .spec import DEFAULT_NAME, config_overrides, inputs, load_spec, template
+from .spec import DEFAULT_NAME, config_overrides, inputs, load_spec, template, wizard
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -20,6 +20,8 @@ def _parser() -> argparse.ArgumentParser:
     init = sub.add_parser("init", help=f"write a commented spec template ({DEFAULT_NAME}) to fill in and run")
     init.add_argument("path", nargs="?", default=DEFAULT_NAME)
     init.add_argument("--force", action="store_true", help="overwrite an existing file")
+    init.add_argument("-i", "--interactive", action="store_true",
+                      help="ask for every setting and write a ready-to-run spec instead of a blank template")
 
     run = sub.add_parser("run", help="start a new debate from a topic or a spec file")
     run.add_argument("topic", help="the question to debate, or a .toml spec file (see `syzetetes init`)")
@@ -119,8 +121,17 @@ def _main(argv: list[str] | None) -> int:
         if path.exists() and not args.force:
             print(f"error: {path} exists (use --force to overwrite)", file=sys.stderr)
             return 2
-        path.write_text(template())
-        print(f"wrote {path}. Fill in 'topic' (and anything else), then: syzetetes run {path}")
+        if args.interactive:
+            try:
+                values = wizard()
+            except (EOFError, KeyboardInterrupt):
+                print("\naborted; nothing written", file=sys.stderr)
+                return 130
+            path.write_text(template(values))
+            print(f"\nwrote {path}. Review it, then: syzetetes run {path}")
+        else:
+            path.write_text(template())
+            print(f"wrote {path}. Fill in 'topic' (and anything else), then: syzetetes run {path}")
         return 0
 
     if args.cmd == "config":
