@@ -5,8 +5,6 @@
   </picture>
 </p>
 
-# Syzetetes
-
 *Syzetetes* (Greek συζητητής, "one who investigates together") makes two different AI models research a
 question, argue it out in structured rounds under a bookkeeping referee, and hand you a referenced report
 of what they agreed on, what they still dispute, and why. You can seed it with your own context, sources,
