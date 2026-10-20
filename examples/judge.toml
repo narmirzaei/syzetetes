@@ -1,0 +1,15 @@
+# The default judge, spelled out. After every round the LLM referee writes the ledger, then Jev (TypeSafe's
+# decision model) rules independently on every claim: status, who moved, repetition, crux kind, whose case is
+# stronger, whether you are needed, each with a confidence. Where it confidently disagrees with the referee,
+# both debaters and the referee must address it next round. Needs $TYPESAFE_API_KEY (./.env.local works).
+topic = "Is sub-replacement fertility a serious problem, or is the pension 'Ponzi' concern a fixable design flaw?"
+
+[models]
+referee = "claude"
+referee_model = "sonnet"
+judge = "jev"
+judge_model = "jev-latest"
+
+[debate]
+max_rounds = 4
+pause_on = ["referee", "stall", "judge_disagrees"]   # also stop when the judge confidently overrules a status

@@ -28,13 +28,14 @@ class Config:
     codex_model: str = field(default_factory=_codex_default_model)
     codex_effort: str = "high"           # low | medium | high | xhigh | ultra (whatever Codex accepts)
 
-    # Referee: bookkeeping only. "claude" or "codex" (an LLM keeps the ledger), or "jev" (TypeSafe's decision
-    # model judges every claim; the LLM below only writes the prose and the synthesis; needs $TYPESAFE_API_KEY).
-    referee: str = "jev"
-    referee_model: str = "haiku"         # the scribe's model under jev; the referee's model under claude/codex
-    referee_effort: str = "low"          #   (an LLM referee defaults to sonnet / medium instead, see load_config)
-    scribe: str = "claude"               # with referee = "jev": which CLI writes the prose, "claude" or "codex"
-    judge_model: str = "jev-latest"      # with referee = "jev": jev-latest | jev-preview | jev-1.14.0 ...
+    # Referee: an LLM that keeps the ledger. "claude" or "codex".
+    referee: str = "claude"
+    referee_model: str = "sonnet"
+    referee_effort: str = "medium"
+    # Judge: rules independently on every claim after every round, with a confidence. "jev" (TypeSafe's
+    # decision model, needs $TYPESAFE_API_KEY; skipped with a warning if the key is missing) or "none".
+    judge: str = "jev"
+    judge_model: str = "jev-latest"      # jev-latest | jev-preview | jev-1.14.0 ...
 
     # Debate shape
     max_rounds: int = 8
@@ -58,21 +59,13 @@ class Config:
     out_dir: str = "debates"
 
     def apply_overrides(self, overrides: dict) -> "Config":
-        for k, v in legacy_pause(overrides).items():
+        for k, v in legacy_referee(legacy_pause(overrides)).items():
             if v is not None and hasattr(self, k):
                 setattr(self, k, v)
         return self
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
-
-
-def _user_sets(key: str) -> bool:
-    try:
-        with USER_CONFIG.open("rb") as f:
-            return key in tomllib.load(f)
-    except (OSError, tomllib.TOMLDecodeError):
-        return False
 
 
 def load_config(overrides: dict | None = None) -> Config:
@@ -91,20 +84,14 @@ def load_config(overrides: dict | None = None) -> Config:
     bad = [t for t in cfg.pause_on if not valid_trigger(t)]
     if bad:
         raise SystemExit(f"pause_on: unknown trigger(s) {bad}; expected one of {', '.join(TRIGGERS)}, round:N, custom:EXPR")
-    if cfg.referee not in ("claude", "codex", "jev"):
-        raise SystemExit("referee must be 'claude', 'codex' or 'jev'")
-    if cfg.scribe not in ("claude", "codex"):
-        raise SystemExit("scribe must be 'claude' or 'codex'")
-    if cfg.referee != "jev":
-        # An LLM doing the whole referee job needs more than the scribe does.
-        if "referee_model" not in (overrides or {}) and not _user_sets("referee_model"):
-            cfg.referee_model = "sonnet"
-        if "referee_effort" not in (overrides or {}) and not _user_sets("referee_effort"):
-            cfg.referee_effort = "medium"
+    if cfg.referee not in ("claude", "codex"):
+        raise SystemExit("referee must be 'claude' or 'codex'")
+    if cfg.judge not in ("jev", "none"):
+        raise SystemExit("judge must be 'jev' or 'none'")
     return cfg
 
 
-TRIGGERS = ("referee", "stall", "every_round", "disputes", "agree_to_disagree", "low_confidence")
+TRIGGERS = ("referee", "stall", "every_round", "disputes", "agree_to_disagree", "judge_disagrees", "low_confidence")
 LEGACY_PAUSE = {"never": [], "referee": ["referee", "stall"], "disputes": ["referee", "stall", "disputes"],
                 "always": ["referee", "stall", "every_round"]}
 
@@ -123,4 +110,14 @@ def legacy_pause(overrides: dict) -> dict:
     if when:
         on.append(f"custom:{when}")
     o["pause_on"] = on
+    return o
+
+
+def legacy_referee(overrides: dict) -> dict:
+    """Runs made while Jev was the referee: load them as referee = the scribe CLI, judge = jev."""
+    if overrides.get("referee") != "jev":
+        return {k: v for k, v in overrides.items() if k != "scribe"}
+    o = {k: v for k, v in overrides.items() if k != "scribe"}
+    o["referee"] = overrides.get("scribe", "claude")
+    o["judge"] = "jev"
     return o

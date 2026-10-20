@@ -20,7 +20,8 @@ DEFAULT_NAME = "syzetetes.toml"
 INPUT_KEYS = ("topic", "note", "context_files", "sources", "opinions", "facts")
 SECTIONS = ("models", "debate", "rerun")
 MODEL_KEYS = ("claude_model", "claude_effort", "codex_model", "codex_effort", "referee", "referee_model", "referee_effort",
-              "scribe", "judge_model")
+              "judge", "judge_model")
+LEGACY_MODEL_KEYS = ("scribe",)
 DEBATE_KEYS = ("max_rounds", "stable_rounds", "research", "pause_on", "out_dir", "timeout_s", "retries")
 LEGACY_DEBATE_KEYS = ("pause", "pause_when")
 RERUN_KEYS = ("from", "keep_rounds", "redo_openings")
@@ -62,13 +63,13 @@ claude_model = {j(c["claude_model"])}            # opus | sonnet | haiku | fable
 claude_effort = {j(c["claude_effort"])}           # low | medium | high | xhigh | max
 codex_model = {j(c["codex_model"])}       # any model your ChatGPT plan allows
 codex_effort = {j(c["codex_effort"])}            # low | medium | high | xhigh | ultra
-referee = {j(c["referee"])}                  # jev (default): TypeSafe's decision model judges every claim with confidences
-                                 #      (needs $TYPESAFE_API_KEY); the LLM below only writes the prose and the synthesis
-                                 # claude | codex: an LLM keeps the whole ledger (use sonnet / medium or better)
-referee_model = {j(c["referee_model"])}          # under jev: the scribe's model (haiku is plenty)
+referee = {j(c["referee"])}               # claude | codex: the LLM that keeps the claim ledger and writes the synthesis
+referee_model = {j(c["referee_model"])}
 referee_effort = {j(c["referee_effort"])}
-scribe = {j(c["scribe"])}                # with referee = "jev": claude | codex writes the prose
-judge_model = {j(c["judge_model"])}      # with referee = "jev": jev-latest | jev-preview | jev-1.14.0
+judge = {j(c["judge"])}                  # jev | none. Jev (TypeSafe's decision model) rules independently on every claim
+                                 # after every round with a confidence; disagreements are fed back into the debate.
+                                 # Needs $TYPESAFE_API_KEY (./.env.local works); skipped with a warning without it.
+judge_model = {j(c["judge_model"])}      # jev-latest | jev-preview | jev-1.14.0
 
 # ------------------------------------------------------------------ debate shape and human pauses
 [debate]
@@ -81,7 +82,8 @@ pause_on = {lst(c["pause_on"])}   # when to stop and ask you (checked after ever
                                  #   "every_round"        after every round
                                  #   "disputes"           after every round that still has a disputed claim
                                  #   "agree_to_disagree"  a side wants to agree to disagree on a claim
-                                 #   "low_confidence"     (referee = jev) the judge was unsure about a status
+                                 #   "judge_disagrees"    the judge confidently disagrees with the referee on a claim
+                                 #   "low_confidence"     the judge was unsure (< 0.60) about a status
                                  #   "round:3"            once, after round 3
                                  #   "custom:disputed >= 2 and round >= 2"   your own condition over the ledger counts
 out_dir = {j(c["out_dir"])}              # where run folders go
@@ -99,6 +101,7 @@ PAUSE_MENU = [
     ("stall",             "Nothing has changed for a while (otherwise a stall ends the debate)"),
     ("disputes",          "After every round that still has a disputed claim: I tie-break each one"),
     ("agree_to_disagree", "A side wants to agree to disagree on a claim: let me weigh in first"),
+    ("judge_disagrees",   "The judge (Jev) confidently disagrees with the referee on a claim: let me rule"),
     ("low_confidence",    "The judge (Jev) was unsure about a claim's status: let me decide it"),
     ("every_round",       "After every round"),
     ("round:",            "Once, after a specific round"),
@@ -190,17 +193,14 @@ def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
     v["claude_effort"] = one("Claude effort", d["claude_effort"], choices=["low", "medium", "high", "xhigh", "max"])
     v["codex_model"] = one("Codex model", d["codex_model"])
     v["codex_effort"] = one("Codex effort", d["codex_effort"], choices=["low", "medium", "high", "xhigh", "ultra"])
-    say("Referee: jev (default; TypeSafe's decision model judges every claim with a confidence, needs")
-    say("$TYPESAFE_API_KEY, an LLM scribe writes the prose) or claude / codex (an LLM keeps the whole ledger).")
-    v["referee"] = one("Referee", d["referee"], choices=["jev", "claude", "codex"])
-    if v["referee"] == "jev":
+    v["referee"] = one("Referee CLI, keeps the ledger (claude | codex)", d["referee"], choices=["claude", "codex"])
+    v["referee_model"] = one("Referee model", d["referee_model"])
+    v["referee_effort"] = one("Referee effort", d["referee_effort"])
+    say("Judge: Jev (TypeSafe's decision model) rules independently on every claim after every round with a")
+    say("confidence; confident disagreements go back into the debate. Needs $TYPESAFE_API_KEY.")
+    v["judge"] = "jev" if yes("Use the Jev judge?", d["judge"] == "jev") else "none"
+    if v["judge"] == "jev":
         v["judge_model"] = one("Jev model", d["judge_model"])
-        v["scribe"] = one("Scribe CLI (claude | codex)", d["scribe"], choices=["claude", "codex"])
-        v["referee_model"] = one("Scribe model", "haiku")
-        v["referee_effort"] = one("Scribe effort", "low")
-    else:
-        v["referee_model"] = one("Referee model", "sonnet")
-        v["referee_effort"] = one("Referee effort", "medium")
     say("\nDebate shape.")
     v["max_rounds"] = one("Max rounds", d["max_rounds"], cast=int)
     v["stable_rounds"] = one("Stop after this many rounds with no status change", d["stable_rounds"], cast=int)
@@ -217,7 +217,7 @@ def load_spec(path: Path) -> dict:
         spec = tomllib.load(f)
     unknown = [k for k in spec if k not in INPUT_KEYS and k not in SECTIONS]
     for sec, keys in (("models", MODEL_KEYS), ("debate", DEBATE_KEYS), ("rerun", RERUN_KEYS)):
-        unknown += [f"{sec}.{k}" for k in spec.get(sec, {}) if k not in keys and k not in LEGACY_DEBATE_KEYS]
+        unknown += [f"{sec}.{k}" for k in spec.get(sec, {}) if k not in keys and k not in LEGACY_DEBATE_KEYS + LEGACY_MODEL_KEYS]
     if unknown:
         raise SystemExit(f"{path}: unknown key(s): {', '.join(unknown)}")
     if "rerun" not in spec and not spec.get("topic", "").strip():

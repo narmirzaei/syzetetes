@@ -86,13 +86,13 @@ def _model_opts(p: argparse.ArgumentParser):
     g.add_argument("--claude-effort", help="low | medium | high | xhigh | max")
     g.add_argument("--codex-model", help="any model your ChatGPT plan allows (default: your Codex config)")
     g.add_argument("--codex-effort", help="low | medium | high | xhigh | ultra")
-    g.add_argument("--referee", choices=["jev", "claude", "codex"],
-                   help="jev (default): TypeSafe's decision model judges every claim (needs $TYPESAFE_API_KEY) and an "
-                        "LLM scribe writes the prose; claude | codex: an LLM keeps the whole ledger")
-    g.add_argument("--referee-model", help="referee model, or the scribe's model when --referee jev")
+    g.add_argument("--referee", choices=["claude", "codex"], help="which CLI keeps the ledger (default claude)")
+    g.add_argument("--referee-model")
     g.add_argument("--referee-effort")
-    g.add_argument("--scribe", choices=["claude", "codex"], help="with --referee jev: which CLI writes the prose")
-    g.add_argument("--judge-model", help="with --referee jev: jev-latest | jev-preview | jev-1.14.0")
+    g.add_argument("--judge", choices=["jev", "none"],
+                   help="jev (default): TypeSafe's decision model rules on every claim with a confidence "
+                        "(needs $TYPESAFE_API_KEY; skipped with a warning without it); none: no judge")
+    g.add_argument("--judge-model", help="jev-latest | jev-preview | jev-1.14.0")
     d = p.add_argument_group("debate")
     d.add_argument("--max-rounds", type=int)
     d.add_argument("--stable-rounds", type=int, help="stop after this many rounds with no ledger change")
@@ -251,9 +251,9 @@ def _main(argv: list[str] | None) -> int:
 
 
 def _drive(d: Debate) -> int:
-    ref = f"{d.judge.label} judging, {d.agents['referee'].label} as scribe" if d.judge else d.agents["referee"].label
-    log.info("Claude: %s | Codex: %s | Referee: %s | pause on: %s",
-             d.agents["claude"].label, d.agents["codex"].label, ref, ", ".join(d.cfg.pause_on) or "nothing (unattended)")
+    log.info("Claude: %s | Codex: %s | Referee: %s | Judge: %s | pause on: %s",
+             d.agents["claude"].label, d.agents["codex"].label, d.agents["referee"].label,
+             d.judge.label if d.judge else "none", ", ".join(d.cfg.pause_on) or "nothing (unattended)")
     progress.start()
     try:
         report = d.run()

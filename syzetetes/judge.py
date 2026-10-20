@@ -1,9 +1,10 @@
-"""The judge: typed, calibrated decisions about every claim after every round, made by Jev (TypeSafe AI).
+"""The judge: typed, calibrated rulings on every claim after every round, made by Jev (TypeSafe AI).
 
 Jev is a decision model: it takes a state plus typed questions and returns a choice / score / yes-no with
-probabilities. It writes no text. We use it for every judgment the referee makes (status, who moved,
-repetition, crux kind, which case is stronger, whether a human is needed, duplicate claims); the prose
-(crux wording, round summary, nudges) is written afterwards by an LLM "scribe" that cannot change them.
+probabilities. It writes no text. The LLM referee writes the ledger; the judge then rules independently on
+each claim (status, who moved, repetition, crux kind, which case is stronger, whether a human is needed).
+Agreement attaches a confidence to the referee's status; disagreement marks the claim contested and, when
+the judge is confident, is put to the debaters and the referee in the next round.
 
 Jev's documented weaknesses, and how each is handled here:
   - context rot on large state   -> one small state per claim: only this round's material about it
@@ -33,8 +34,8 @@ ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 ENV_KEY = "TYPESAFE_API_KEY"
 DEFAULT_MODEL = "jev-latest"
 MAX_FIELD_CHARS = 6000          # per text field in a claim state; keeps each question far below 32k tokens
-DUPLICATE_THRESHOLD = 0.8
 HUMAN_THRESHOLD = 0.7
+FEEDBACK_THRESHOLD = 0.7        # a contested ruling at or above this goes to the debaters next round
 LOW_CONFIDENCE = 0.6
 
 STATUSES = {
@@ -94,9 +95,8 @@ class JevJudge(Judge):
         self.calls = 0
         self.input_tokens = 0
         if not self.api_key:
-            raise JudgeError(f"The default referee is Jev, which needs an API key: put TYPESAFE_API_KEY=... in ./.env.local "
-                             f"or export it (get one at https://console.typesafe.ai/keys). "
-                             f"To referee with an LLM instead: --referee claude or --referee codex.")
+            raise JudgeError(f"no TYPESAFE_API_KEY (put it in ./.env.local or export it; https://console.typesafe.ai/keys); "
+                             f"running without the judge, so no confidences and no contested claims. --judge none silences this.")
 
     def ask(self, state: dict, questions: dict) -> dict:
         body = json.dumps({"model": self.model, "state": state, "questions": questions}, ensure_ascii=False).encode()
@@ -222,20 +222,6 @@ def judge_claim(judge: Judge, state: dict) -> dict:
         "answered_request": noul("answered_request"),
         "human_needed": noul("human_needed"),
     }
-
-
-def judge_duplicate(judge: Judge, topic: str, new_claim: str, existing: list[tuple[str, str]]) -> dict[str, float]:
-    """Probability that `new_claim` is the same substantive claim as each existing one (id -> p)."""
-    if not existing:
-        return {}
-    state = {"topic": topic, "new_claim": _trim(new_claim),
-             "existing_claims": {cid: _trim(text) for cid, text in existing}}
-    questions = {cid: _noul(f"The new claim makes the same substantive point as existing claim {cid}, "
-                            f"so they should be treated as one claim",
-                            "same claim, perhaps worded differently", "a different claim, even if related")
-                 for cid, _ in existing}
-    answers = judge.ask(state, questions)
-    return {cid: round(float(answers[cid]["noul"]), 3) for cid, _ in existing}
 
 
 def judge_all(judge: Judge, states: dict[str, dict], workers: int = 4) -> dict[str, dict]:

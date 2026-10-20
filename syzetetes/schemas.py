@@ -85,21 +85,6 @@ LEDGER = _obj({
     "settled": {"type": "boolean", "description": "True when no claim is 'disputed' or 'open'."},
 })
 
-# What the scribe writes when a decision model (Jev) has already judged every claim. Statuses, flags and
-# crux kinds are fixed by code; the scribe only supplies words.
-SCRIBE = _obj({
-    "claims": {"type": "array", "items": _obj({
-        "id": {"type": "string"},
-        "claude_position": {"type": "string", "description": "Claude's current position on this claim, one or two sentences."},
-        "codex_position": {"type": "string"},
-        "crux": {"type": "string", "description": "For disputed claims: the single fact or value judgement it turns on. Else empty."},
-    })},
-    "round_summary": {"type": "string", "description": "2-4 neutral sentences on what moved this round, consistent with the fixed statuses."},
-    "nudge_claude": {"type": "string", "description": "Procedural instruction for Claude's next turn, naming the flagged claim IDs, or empty."},
-    "nudge_codex": {"type": "string"},
-    "human_question": {"type": "string", "description": "If a human decision was requested: the precise decision with its options. Else empty."},
-})
-
 SYNTHESIS = _obj({
     "executive_summary": {"type": "string", "description": "Markdown, 200-400 words, for a reader who will not read the transcript."},
     "verdicts": {"type": "array", "items": _obj({

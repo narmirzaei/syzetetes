@@ -1,4 +1,4 @@
-# Worried Claude is refereeing a Claude-vs-Codex debate? Let Codex keep the ledger and write the synthesis.
+# Let Codex keep the ledger and write the synthesis instead of Claude. The Jev judge still rules on every claim.
 topic = "Will AI coding agents reduce the number of professional software developers by 2035?"
 
 [models]

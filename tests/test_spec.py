@@ -67,7 +67,7 @@ def test_effective_spec_written_and_reloadable(tmp_path):
     d, _ = _run(tmp_path, {"ledger": lambda r: "conceded"}, {"unattended": True})
     text = d.files.spec.read_text()
     s = tomllib.loads(text)
-    assert s["topic"] == "Should we Test?" and s["debate"]["max_rounds"] == 4 and s["models"]["referee"] == "jev"
+    assert s["topic"] == "Should we Test?" and s["debate"]["max_rounds"] == 4 and s["models"]["referee"] == "claude" and s["models"]["judge"] == "jev"
     assert sp.load_spec(d.files.spec)["topic"] == "Should we Test?"
 
 
@@ -82,8 +82,9 @@ def test_wizard_fills_template(tmp_path):
         "",                                   # facts
         "sonnet", "bogus", "low",             # claude model, bad effort then ok
         "", "medium", "codex", "", "",        # codex model default, effort, referee, model, effort
+        "y", "",                              # judge: yes, jev model default
         "3", "", "n",                         # rounds, stable, research
-        "3,7", "2", "", "", "",               # pause menu: disputes + once after round 2; out_dir, timeout, retries
+        "3,8", "2", "", "", "",               # pause menu: disputes + once after round 2; out_dir, timeout, retries
     ])
     said = []
     v = sp.wizard(ask=lambda _: next(answers), say=said.append)
@@ -91,7 +92,7 @@ def test_wizard_fills_template(tmp_path):
     d = tomllib.loads(text)
     assert d["topic"] == "Is X true?" and d["sources"] == ["https://a", "notes.md"] and d["opinions"] == ["I think yes"]
     assert d["models"]["claude_model"] == "sonnet" and d["models"]["claude_effort"] == "low"
-    assert d["models"]["codex_effort"] == "medium" and d["models"]["referee"] == "codex"
+    assert d["models"]["codex_effort"] == "medium" and d["models"]["referee"] == "codex" and d["models"]["judge"] == "jev"
     assert d["debate"]["max_rounds"] == 3 and d["debate"]["research"] is False
     assert d["debate"]["pause_on"] == ["disputes", "round:2"]
     assert "rerun" not in d
@@ -111,8 +112,8 @@ def test_wizard_rerun_branch():
 
 def test_wizard_pause_menu_zero_means_never_and_rejects_bad(tmp_path):
     said = []
-    answers = iter(["9", "0"])
+    answers = iter(["12", "0"])
     out = sp.pause_menu(lambda label, default="", **k: next(answers), said.append, ["referee", "stall"])
     assert out == [] and any("use numbers" in m for m in said)
-    answers = iter(["8", "open >= 1"])
+    answers = iter(["9", "open >= 1"])
     assert sp.pause_menu(lambda label, default="", **k: next(answers), said.append, []) == ["custom:open >= 1"]

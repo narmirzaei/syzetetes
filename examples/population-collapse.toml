@@ -7,9 +7,10 @@ claude_model = "opus"
 claude_effort = "high"
 codex_model = "gpt-6.1-sol"
 codex_effort = "high"
-referee = "claude"            # this run predates the Jev referee; drop these three lines to use the default
+referee = "claude"
 referee_model = "sonnet"
 referee_effort = "medium"
+judge = "none"                # this run predates the judge; drop this line to have Jev rule on every claim
 
 [debate]
 max_rounds = 4
