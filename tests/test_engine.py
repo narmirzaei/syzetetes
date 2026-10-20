@@ -7,11 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from debate import schemas  # noqa: E402
-from debate.agents import Agent  # noqa: E402
-from debate.config import Config  # noqa: E402
-from debate.engine import Debate  # noqa: E402
-from debate.report import References, render_report  # noqa: E402
+from syzetetes import schemas  # noqa: E402
+from syzetetes.agents import Agent  # noqa: E402
+from syzetetes.config import Config  # noqa: E402
+from syzetetes.engine import Debate  # noqa: E402
+from syzetetes.report import References, render_report  # noqa: E402
 
 SRC = {"url": "https://example.org/paper", "title": "Example paper", "note": "Shows X."}
 SRC2 = {"url": "https://example.org/other/", "title": "", "note": ""}

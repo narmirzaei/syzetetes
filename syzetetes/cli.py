@@ -1,4 +1,4 @@
-"""debate — have Claude and Codex research a topic, debate it, and write a referenced report."""
+"""Syzetetes — Claude and Codex research a topic, debate it, and write a referenced report."""
 from __future__ import annotations
 
 import argparse
@@ -13,7 +13,7 @@ from .runs import list_runs, load_sources, resolve
 
 
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="debate", description=__doc__)
+    p = argparse.ArgumentParser(prog="syzetetes", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
     run = sub.add_parser("run", help="start a new debate")
@@ -90,7 +90,7 @@ def _model_opts(p: argparse.ArgumentParser):
     d.add_argument("--timeout", dest="timeout_s", type=int, help="seconds per model call")
 
 
-log = logging.getLogger("debate")
+log = logging.getLogger("syzetetes")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -176,9 +176,9 @@ def _drive(d: Debate) -> int:
     try:
         report = d.run()
     except KeyboardInterrupt:
-        print(f"\nInterrupted. Resume with: debate resume {d.code}", file=sys.stderr)
+        print(f"\nInterrupted. Resume with: syzetetes resume {d.code}", file=sys.stderr)
         return 130
-    print(f"\nReport: {report}\nAsk about it: debate chat {d.code}")
+    print(f"\nReport: {report}\nAsk about it: syzetetes chat {d.code}")
     return 0
 
 

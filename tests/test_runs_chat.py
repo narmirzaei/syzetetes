@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from debate import chat as chatmod
-from debate.chat import Chat
-from debate.runs import RunFiles, list_runs, new_run, next_code, resolve
+from syzetetes import chat as chatmod
+from syzetetes.chat import Chat
+from syzetetes.runs import RunFiles, list_runs, new_run, next_code, resolve
 
 
 def test_codes_are_sequential_and_resolvable(tmp_path):
@@ -69,7 +69,7 @@ def test_chat_refuses_without_report(tmp_path):
 
 
 def test_cli_parsers_build():
-    from debate.cli import _parser
+    from syzetetes.cli import _parser
     p = _parser()
     a = p.parse_args(["rerun", "D0001", "--keep-rounds", "2", "--opinion", "x", "--pause", "disputes", "--out", "o"])
     assert (a.run, a.keep_rounds, a.opinion, a.pause, a.out_dir) == ("D0001", 2, ["x"], "disputes", "o")

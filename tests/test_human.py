@@ -1,7 +1,7 @@
 import json
 
-from debate.config import Config
-from debate.engine import Debate
+from syzetetes.config import Config
+from syzetetes.engine import Debate
 from tests.test_engine import Fake, _run
 
 
@@ -66,7 +66,7 @@ def test_rerun_inherits_and_adds(tmp_path):
 
 
 def test_sources_flow_to_prompts_and_report(tmp_path):
-    from debate.runs import load_sources
+    from syzetetes.runs import load_sources
     f = tmp_path / "paper.txt"; f.write_text("Pensions depend on the worker ratio.")
     sources = load_sources(["https://example.org/x", str(f)])
     assert sources[0]["kind"] == "url" and sources[1]["kind"] == "file" and "worker ratio" in sources[1]["text"]

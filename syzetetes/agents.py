@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .schemas import SchemaError, validate
 
-log = logging.getLogger("debate")
+log = logging.getLogger("syzetetes")
 
 
 class AgentError(RuntimeError):
@@ -122,7 +122,7 @@ class CodexAgent(Agent):
             raise AgentError("codex CLI not found on PATH")
         # Codex has no system-prompt flag; the role block goes at the top of the prompt.
         full = f"# Your role and rules\n\n{system}\n\n---\n\n{prompt}"
-        with tempfile.TemporaryDirectory(prefix="debate-codex-") as td:
+        with tempfile.TemporaryDirectory(prefix="syzetetes-codex-") as td:
             schema_path = Path(td) / "schema.json"
             out_path = Path(td) / "last.txt"
             schema_path.write_text(json.dumps(schema))

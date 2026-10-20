@@ -20,7 +20,7 @@ from .config import Config
 from .report import render_report
 from .runs import RunFiles, new_run, resolve
 
-log = logging.getLogger("debate")
+log = logging.getLogger("syzetetes")
 
 # A checkpoint receives (question, options) and returns the human's raw reply.
 Checkpoint = Callable[[str, list[str]], str]

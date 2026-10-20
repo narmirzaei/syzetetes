@@ -1,4 +1,4 @@
-"""Configuration: built-in defaults, ~/.config/debate/config.toml, then CLI overrides."""
+"""Configuration: built-in defaults, ~/.config/syzetetes/config.toml, then CLI overrides."""
 from __future__ import annotations
 
 import dataclasses
@@ -6,7 +6,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-USER_CONFIG = Path.home() / ".config" / "debate" / "config.toml"
+USER_CONFIG = Path.home() / ".config" / "syzetetes" / "config.toml"
 CODEX_USER_CONFIG = Path.home() / ".codex" / "config.toml"
 
 
