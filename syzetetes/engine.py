@@ -19,7 +19,7 @@ from .agents import Agent, make_agent
 from .config import Config
 from .report import render_report
 from .review import write_review
-from .runs import RunFiles, load_state, new_run, resolve
+from .runs import RunFiles, load_state, new_run, rename_slug, resolve
 from .spec import effective_spec
 from .ui import progress
 
@@ -82,8 +82,9 @@ class Debate:
 
     @classmethod
     def create(cls, topic: str, context: str, cfg: Config, facts: list[str] = (), opinions: list[str] = (),
-               sources: list[dict] = (), **kw) -> "Debate":
-        files = new_run(Path(cfg.out_dir), topic)
+               sources: list[dict] = (), files: RunFiles | None = None, **kw) -> "Debate":
+        """`files`: a folder already allocated by `syzetetes init`; otherwise a new code is taken."""
+        files = rename_slug(files, topic) if files else new_run(Path(cfg.out_dir), topic)
         d = cls(files, cfg, **kw)
         d.state = {
             "code": files.code, "topic": topic, "context": context, "sources": list(sources), "config": cfg.to_dict(),
@@ -111,14 +112,15 @@ class Debate:
 
     @classmethod
     def derive(cls, src: str | Path, cfg_overrides: dict, keep_rounds: int = 0, redo_openings: bool = False,
-               facts: list[str] = (), opinions: list[str] = (), sources: list[dict] = (), **kw) -> "Debate":
+               facts: list[str] = (), opinions: list[str] = (), sources: list[dict] = (),
+               files: RunFiles | None = None, **kw) -> "Debate":
         """A new run that inherits a finished run's research (and the first `keep_rounds` rounds) and
         re-runs the rest, so the human can add an opinion or a fact retrospectively. Adding sources
         redoes the research too, since the briefings must start from them."""
         src_files = resolve(str(src), Path(Config().apply_overrides(cfg_overrides).out_dir))
         old = load_state(src_files)
         cfg = Config().apply_overrides(old["config"]).apply_overrides(cfg_overrides)
-        files = new_run(Path(cfg.out_dir), old["topic"])
+        files = rename_slug(files, old["topic"]) if files else new_run(Path(cfg.out_dir), old["topic"])
         d = cls(files, cfg, **kw)
         if sources:
             redo_openings = True

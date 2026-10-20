@@ -18,12 +18,39 @@ def test_template_parses_and_lists_every_config_key(tmp_path):
     assert cfg_fields == set(sp.MODEL_KEYS) | set(sp.DEBATE_KEYS)
 
 
-def test_init_and_load(tmp_path, capsys):
-    p = tmp_path / "s.toml"
-    assert main(["init", str(p)]) == 0 and p.exists()
-    assert main(["init", str(p)]) == 2                      # refuses to overwrite
+def test_init_allocates_run_folder(tmp_path, capsys):
+    out = tmp_path / "runs"
+    assert main(["init", "--out", str(out)]) == 0
+    assert (out / "D0001-untitled" / "D0001-00-spec.toml").exists()
+    assert main(["init", "Is X true?", "--out", str(out)]) == 0
+    spec = out / "D0002-is-x-true" / "D0002-00-spec.toml"
+    assert spec.exists() and sp.load_spec(spec)["topic"] == "Is X true?"
+    assert "syzetetes run D0002" in capsys.readouterr().out
     with pytest.raises(SystemExit):
-        sp.load_spec(p)                                     # topic empty
+        sp.load_spec(out / "D0001-untitled" / "D0001-00-spec.toml")   # topic empty
+
+
+def test_run_code_uses_init_folder_and_renames(tmp_path, monkeypatch):
+    from syzetetes.config import Config
+    from syzetetes.engine import Debate
+    from syzetetes.runs import resolve
+    from tests.test_engine import Fake
+    out = tmp_path / "runs"
+    main(["init", "--out", str(out)])
+    files = resolve("D0001", out)
+    files.spec.write_text('topic = "Renamed topic"\n[debate]\nmax_rounds = 1\n')
+    script = {"ledger": lambda r: "conceded"}
+    agents = {w: Fake(w, script) for w in ("claude", "codex")}; agents["referee"] = Fake("claude", script)
+    d = Debate.create("Renamed topic", "", Config(out_dir=str(out), unattended=True, max_rounds=1),
+                      files=files, agents=agents)
+    assert d.code == "D0001" and d.dir.name == "D0001-renamed-topic" and not (out / "D0001-untitled").exists()
+    d.run()
+    assert d.files.report.exists()
+    assert main(["run", "D0001", "--out", str(out)]) == 2        # already ran
+
+
+def test_load_spec_inputs(tmp_path):
+    p = tmp_path / "s.toml"
     (tmp_path / "ctx.md").write_text("context here")
     p.write_text('topic = "T?"\nnote = "n"\ncontext_files = ["ctx.md"]\nsources = ["https://x", "ctx.md"]\n'
                  'opinions = ["o"]\nfacts = ["f"]\n[models]\nclaude_model = "haiku"\n[debate]\npause = "always"\n')

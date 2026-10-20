@@ -64,6 +64,15 @@ def new_run(out_dir: Path, topic: str) -> RunFiles:
     return RunFiles(d, code)
 
 
+def rename_slug(files: RunFiles, topic: str) -> RunFiles:
+    """Give a run folder its real name once the topic is known (init without a topic uses 'untitled')."""
+    target = files.dir.with_name(f"{files.code}-{slugify(topic)}")
+    if target == files.dir:
+        return files
+    files.dir.rename(target)
+    return RunFiles(target, files.code)
+
+
 def resolve(ref: str, out_dir: Path) -> RunFiles:
     """`D0001` (any case, number may be unpadded: `d1`) or a path to a run folder."""
     m = re.fullmatch(r"[dD](\d+)", ref.strip())

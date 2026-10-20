@@ -68,15 +68,18 @@ Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex 
 ## Five-minute tour
 
 ```
-syzetetes init -i              # asks you everything and writes a ready-to-run syzetetes.toml
-syzetetes init                 # or: write the blank commented template and fill it in by hand
-syzetetes run syzetetes.toml   # research → openings → rounds → closings → synthesis → report
+syzetetes init -i              # asks you everything; creates debates/D0001-<name>/ with D0001-00-spec.toml
+syzetetes run D0001            # research → openings → rounds → closings → synthesis → report
 syzetetes review D0001         # interactive page: how every claim moved until the synthesis
 syzetetes chat D0001           # ask questions, answered only from the report
 syzetetes list                 # every run, its code and status
 ```
 
-No spec file needed for a quick one:
+`init` allocates the run up front: a sequential code, a folder named after the question, and the spec
+inside it. Without `-i` it writes the blank commented template for you to fill in by hand
+(`syzetetes init "the question"` names the folder straight away). Nothing is sent to a model until `run`.
+
+No spec needed for a quick one:
 
 ```
 syzetetes run "Is remote work net positive for early-stage startups?"
@@ -107,10 +110,11 @@ live so you can read along. Redirect stderr to a file and the display degrades t
 
 ## The spec file
 
-Everything a run needs lives in one TOML file. `syzetetes init` writes a commented template, and
-`syzetetes init --interactive` (`-i`) walks you through every setting with its default and writes the
-filled-in file, including the replay section if you choose to derive from an earlier run. Every key is
-optional except `topic`, and every CLI flag has a key here. A flag given on the command line overrides the
+Everything a run needs lives in one TOML file, `<code>-00-spec.toml`, inside the run folder.
+`syzetetes init` creates the folder and writes a commented template; `syzetetes init --interactive`
+(`-i`) walks you through every setting with its default and writes the filled-in file, including the
+replay section if you choose to derive from an earlier run. Every key is optional except `topic`, and
+every CLI flag has a key here. A flag given on the command line overrides the
 file. (TOML rather than YAML because Python reads it with no third-party dependency, and it has comments.)
 
 ```toml
@@ -148,8 +152,9 @@ retries = 3
 # redo_openings = false
 ```
 
-Paths in `context_files` and `sources` resolve relative to the spec file. Every run also saves the
-effective spec it ran with as `<code>-00-spec.toml`, so any run can be reproduced or used as a template.
+Paths in `context_files` and `sources` resolve relative to the spec file. `syzetetes run` also accepts a
+spec file anywhere on disk (`syzetetes run examples/cheap-smoke-test.toml`), in which case a new code is
+allocated. A run started from a topic saves the spec it ran with, so any run can be reproduced or copied.
 
 ## Recipes
 
@@ -378,8 +383,8 @@ debates/
 ## Commands
 
 ```
-syzetetes init [FILE] [-i]        write a spec template; -i asks for every setting and fills it in
-syzetetes run TOPIC|SPEC.toml     start a debate; flags override the spec
+syzetetes init [TOPIC] [-i]       create a run folder (code + name) with its spec; -i fills it in
+syzetetes run CODE|SPEC|TOPIC     start a debate from an init'd code, a spec file, or a question
 syzetetes resume CODE             continue an interrupted run from its last saved step
 syzetetes rerun CODE [...]        replay a finished run from a chosen round with new input
 syzetetes review CODE             write and open the interactive review

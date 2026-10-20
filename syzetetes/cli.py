@@ -4,12 +4,14 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import tomllib
+import re
 import sys
 from pathlib import Path
 
 from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
-from .runs import list_runs, load_sources, load_state, resolve
+from .runs import RunFiles, list_runs, load_sources, load_state, new_run, resolve
 from .spec import DEFAULT_NAME, config_overrides, inputs, load_spec, template, wizard
 from .ui import progress, setup_logging
 
@@ -18,14 +20,14 @@ def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="syzetetes", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    init = sub.add_parser("init", help=f"write a commented spec template ({DEFAULT_NAME}) to fill in and run")
-    init.add_argument("path", nargs="?", default=DEFAULT_NAME)
-    init.add_argument("--force", action="store_true", help="overwrite an existing file")
+    init = sub.add_parser("init", help="create a new run folder (code + name) with its spec file, ready to run")
+    init.add_argument("topic", nargs="?", default="", help="the question; names the folder (optional with -i)")
     init.add_argument("-i", "--interactive", action="store_true",
-                      help="ask for every setting and write a ready-to-run spec instead of a blank template")
+                      help="ask for every setting and write a filled-in spec instead of a blank template")
+    init.add_argument("--out", dest="out_dir", help="directory holding run folders (default: ./debates)")
 
-    run = sub.add_parser("run", help="start a new debate from a topic or a spec file")
-    run.add_argument("topic", help="the question to debate, or a .toml spec file (see `syzetetes init`)")
+    run = sub.add_parser("run", help="start a debate: from a run code made by `init`, a spec file, or a topic")
+    run.add_argument("topic", help="a run code (D0002, from `syzetetes init`), a .toml spec file, or the question itself")
     run.add_argument("--context", action="append", default=[], metavar="FILE",
                      help="file with extra context for both sides (repeatable); use '-' for stdin")
     run.add_argument("--note", default="", help="short extra context given inline")
@@ -117,21 +119,23 @@ def _main(argv: list[str] | None) -> int:
     args = _parser().parse_args(argv)
     setup_logging()
     if args.cmd == "init":
-        path = Path(args.path)
-        if path.exists() and not args.force:
-            print(f"error: {path} exists (use --force to overwrite)", file=sys.stderr)
-            return 2
+        out_dir = Path(args.out_dir or load_config().out_dir)
+        values = None
         if args.interactive:
             try:
                 values = wizard()
             except (EOFError, KeyboardInterrupt):
-                print("\naborted; nothing written", file=sys.stderr)
+                print("\naborted; nothing created", file=sys.stderr)
                 return 130
-            path.write_text(template(values))
-            print(f"\nwrote {path}. Review it, then: syzetetes run {path}")
-        else:
-            path.write_text(template())
-            print(f"wrote {path}. Fill in 'topic' (and anything else), then: syzetetes run {path}")
+            if args.topic and not values.get("topic") and not values.get("rerun"):
+                values["topic"] = args.topic
+        topic = (values or {}).get("topic") or args.topic
+        name = topic or ((values or {}).get("rerun") or {}).get("from", "") and f"replay of {values['rerun']['from']}" or "untitled"
+        files = new_run(out_dir, name)
+        files.spec.write_text(template({**(values or {}), "topic": topic} if values or topic else None))
+        print(f"Created {files.code}: {files.dir}/\n  {files.spec.name}  "
+              + ("review it" if values else "fill in 'topic' and anything else")
+              + f", then:  syzetetes run {files.code}")
         return 0
 
     if args.cmd == "config":
@@ -146,9 +150,16 @@ def _main(argv: list[str] | None) -> int:
 
     if args.cmd == "list":
         for f in list_runs(out_dir):
-            state = json.loads(f.state.read_text()) if f.state.exists() else {}
-            status = "done" if f.report.exists() else state.get("phase", "?")
-            print(f"{f.code}  {status:<10} {state.get('topic', f.dir.name)}")
+            if f.state.exists():
+                state = load_state(f)
+                status, topic = ("done" if f.report.exists() else state.get("phase", "?")), state["topic"]
+            elif f.spec.exists():
+                spec = tomllib.loads(f.spec.read_text())
+                topic = spec.get("topic") or (f"replay of {spec['rerun']['from']}" if spec.get("rerun") else "")
+                status = "ready" if topic else "needs topic"
+            else:
+                status, topic = "?", ""
+            print(f"{f.code}  {status:<12} {topic or f.dir.name}")
         return 0
 
     if args.cmd == "render":
@@ -196,7 +207,17 @@ def _main(argv: list[str] | None) -> int:
 
     flag_overrides = {k: v for k, v in vars(args).items()
                       if k not in ("cmd", "topic", "context", "note", "opinion", "fact", "source") and v is not None}
-    spec_path = Path(args.topic)
+    spec_path, files = Path(args.topic), None
+    if re.fullmatch(r"[dD]\d+", args.topic.strip()):
+        files = resolve(args.topic, Path(load_config(flag_overrides).out_dir))
+        if files.state.exists():
+            print(f"error: {files.code} has already run; use `syzetetes resume {files.code}` or "
+                  f"`syzetetes rerun {files.code}`", file=sys.stderr)
+            return 2
+        if not files.spec.exists():
+            print(f"error: {files.code} has no spec file ({files.spec.name})", file=sys.stderr)
+            return 2
+        spec_path = files.spec
     if spec_path.suffix == ".toml" and spec_path.is_file():
         spec = load_spec(spec_path)
         inp = inputs(spec, spec_path.parent)
@@ -218,11 +239,11 @@ def _main(argv: list[str] | None) -> int:
         cfg_probe = load_config(overrides)
         d = Debate.derive(resolve(str(rr["from"]), Path(cfg_probe.out_dir)).dir, overrides,
                           keep_rounds=int(rr.get("keep_rounds", 0)), redo_openings=bool(rr.get("redo_openings", False)),
-                          facts=facts, opinions=opinions, sources=load_sources(sources))
+                          facts=facts, opinions=opinions, sources=load_sources(sources), files=files)
         log.info("run %s derived from %s: %s", d.code, rr["from"], d.dir)
         return _drive(d)
     cfg = load_config(overrides)
-    d = Debate.create(topic, context, cfg, facts=facts, opinions=opinions, sources=load_sources(sources))
+    d = Debate.create(topic, context, cfg, facts=facts, opinions=opinions, sources=load_sources(sources), files=files)
     log.info("run %s: %s", d.code, d.dir)
     return _drive(d)
 
