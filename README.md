@@ -48,14 +48,22 @@ narrowed to their crux, and an honest list of what nobody could settle.
 
 ## Install
 
+As a command on your PATH (recommended):
+
 ```
-git clone https://github.com/narmirzaei/syzetetes
-cd syzetetes
-python3 -m venv .venv && .venv/bin/pip install -e .
+pipx install git+https://github.com/narmirzaei/syzetetes      # or: uv tool install git+https://github.com/narmirzaei/syzetetes
+syzetetes --help
 ```
 
-Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex login`). The examples
-below assume `.venv/bin` is on your PATH, or prefix each command with `.venv/bin/`.
+For development, from a clone, so edits take effect immediately:
+
+```
+git clone https://github.com/narmirzaei/syzetetes && cd syzetetes
+pipx install --editable .           # global command, editable
+python3 -m venv .venv && .venv/bin/pip install -e . pytest    # venv for the tests
+```
+
+Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex login`).
 
 ## Five-minute tour
 
