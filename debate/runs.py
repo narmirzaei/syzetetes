@@ -84,3 +84,23 @@ def list_runs(out_dir: Path) -> list[RunFiles]:
         if m and p.is_dir():
             out.append(RunFiles(p, f"D{int(m.group(1)):04d}"))
     return out
+
+
+MAX_SOURCE_CHARS = 40_000
+
+
+def load_sources(refs: list[str]) -> list[dict]:
+    """Each ref is a URL (passed through; the debaters fetch it) or a local file (its text is embedded)."""
+    out = []
+    for ref in refs:
+        if ref.startswith(("http://", "https://")):
+            out.append({"ref": ref, "kind": "url"})
+            continue
+        p = Path(ref).expanduser()
+        if not p.is_file():
+            raise FileNotFoundError(f"source {ref}: not a URL and not a file")
+        text = p.read_text(errors="replace")
+        if len(text) > MAX_SOURCE_CHARS:
+            text = text[:MAX_SOURCE_CHARS] + f"\n[... truncated at {MAX_SOURCE_CHARS} characters]"
+        out.append({"ref": str(p), "kind": "file", "text": text})
+    return out

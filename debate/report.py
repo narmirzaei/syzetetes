@@ -128,7 +128,11 @@ def render_report(state: dict, agents: dict | None = None) -> str:
     out.append(f"| Ended because | {state.get('stop_reason') or 'in progress'} |")
     out.append(f"| Claims | {_counts(ledger)} |")
     if state.get("context"):
-        out.append(f"\n**Author's context.** {c(state['context'])}")
+        out.append(f"\n**Author's starting context.** {c(state['context'])}")
+    if state.get("sources"):
+        out.append("\n**Author's starting sources.**\n" + "\n".join(
+            f"- S{i}: " + (c(x["ref"]) if x["kind"] == "url" else f"`{x['ref']}` (file)")
+            for i, x in enumerate(state["sources"], 1)))
     if state.get("derived_from"):
         out.append(f"\n**Derived from** {state['derived_from']}.")
     if state.get("rulings"):

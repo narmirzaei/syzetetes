@@ -31,6 +31,22 @@ Markdown report of what they agreed on, what they still dispute, and why.
 
 While it runs, `<code>-01-transcript.md` in the run folder is appended live so you can read along.
 
+## Giving the debate a starting point
+
+Optional. Anything you give here complements the topic: both sides start from it, but must still check
+it against independent evidence.
+
+```
+--note "I am writing for engineers."        # short inline context
+--context notes.md                           # a file of context (repeatable; '-' for stdin)
+--source https://example.org/paper           # a URL both sides must read and cite (repeatable)
+--source ~/papers/jones-2022.txt             # a local file; its text is embedded (up to 40k chars)
+--opinion "I lean towards X."                # your bias, stated as such (see below)
+```
+
+Sources are numbered S1, S2, ... in the prompts and listed in the report. `debate rerun D0001 --source ...`
+adds sources to a finished run; research and openings are redone since the briefings must start from them.
+
 ## Steering the debate with your own opinion
 
 Two kinds of input, both recorded in the report:

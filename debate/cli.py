@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
-from .runs import list_runs, resolve
+from .runs import list_runs, load_sources, resolve
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -56,6 +56,8 @@ def _human_opts(p: argparse.ArgumentParser):
                    help="your view, not binding: the debaters must engage with it (repeatable)")
     h.add_argument("--ruling", action="append", default=[], metavar="TEXT",
                    help="a binding ruling / veto both debaters treat as settled (repeatable)")
+    h.add_argument("--source", action="append", default=[], metavar="URL|FILE",
+                   help="a source both sides must start from and cite (repeatable); on rerun, redoes research")
 
 
 def _run_ref(p: argparse.ArgumentParser):
@@ -135,9 +137,11 @@ def _main(argv: list[str] | None) -> int:
 
     if args.cmd == "rerun":
         overrides = {k: v for k, v in vars(args).items()
-                     if k not in ("cmd", "run", "keep_rounds", "redo_openings", "opinion", "ruling") and v is not None}
+                     if k not in ("cmd", "run", "keep_rounds", "redo_openings", "opinion", "ruling", "source")
+                     and v is not None}
         d = Debate.derive(resolve(args.run, out_dir).dir, overrides, keep_rounds=args.keep_rounds,
-                          redo_openings=args.redo_openings, rulings=args.ruling, opinions=args.opinion)
+                          redo_openings=args.redo_openings, rulings=args.ruling, opinions=args.opinion,
+                          sources=load_sources(args.source))
         log.info("run %s derived from %s: %s", d.code, args.run, d.dir)
         return _drive(d)
 
@@ -152,14 +156,15 @@ def _main(argv: list[str] | None) -> int:
         return 0
 
     overrides = {k: v for k, v in vars(args).items()
-                 if k not in ("cmd", "topic", "context", "note", "opinion", "ruling") and v is not None}
+                 if k not in ("cmd", "topic", "context", "note", "opinion", "ruling", "source") and v is not None}
     cfg = load_config(overrides)
     context_parts = [args.note] if args.note else []
     for f in args.context:
         context_parts.append(sys.stdin.read() if f == "-" else Path(f).read_text())
     context = "\n\n".join(p.strip() for p in context_parts if p.strip())
 
-    d = Debate.create(args.topic, context, cfg, rulings=args.ruling, opinions=args.opinion)
+    d = Debate.create(args.topic, context, cfg, rulings=args.ruling, opinions=args.opinion,
+                      sources=load_sources(args.source))
     log.info("run %s: %s", d.code, d.dir)
     return _drive(d)
 

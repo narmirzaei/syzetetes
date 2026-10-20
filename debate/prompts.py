@@ -80,7 +80,7 @@ Output must match the JSON schema exactly."""
 
 # ---------------------------------------------------------------- user prompts
 
-def research_prompt(topic: str, context: str) -> str:
+def research_prompt(topic: str, context: str, sources: list[dict] = ()) -> str:
     return f"""# Task: independent research briefing
 
 Research the topic below before the debate begins. Your counterpart is doing the same independently;
@@ -89,16 +89,16 @@ peer-reviewed work, and well-regarded reporting. Record what each source actuall
 wish it said. Note where sources conflict.
 
 Topic: {topic}
-{_ctx(context)}
+{_ctx(context, sources)}
 Produce: a neutral summary, 6-15 findings with evidence and sources, the contested points, and the
 open questions a debate should settle."""
 
 
-def opening_prompt(topic: str, context: str, memos: dict) -> str:
+def opening_prompt(topic: str, context: str, memos: dict, sources: list[dict] = ()) -> str:
     return f"""# Task: opening position
 
 Topic: {topic}
-{_ctx(context)}
+{_ctx(context, sources)}
 Both research briefings are below. Write your opening position: a thesis and 4-8 falsifiable claims
 with reasoning, confidence and sources. There is no ledger yet, so "responses" and "evidence_requests"
 must be empty arrays and nothing_new must be false. Claims should be the ones that matter most to a
@@ -202,8 +202,23 @@ author; and caveats about the evidence base."""
 
 # ---------------------------------------------------------------- helpers
 
-def _ctx(context: str) -> str:
-    return f"\n## Additional context from the author\n{context}\n" if context.strip() else ""
+def _ctx(context: str, sources: list[dict] = ()) -> str:
+    """The author's starting point: free-text context and/or sources. Optional; complements the topic."""
+    if not context.strip() and not sources:
+        return ""
+    out = ["\n## Starting point from the author (complements the topic; not a verdict)"]
+    if context.strip():
+        out.append(context.strip())
+    if sources:
+        out.append("The author asks you to start from these sources. Read each one, record what it actually "
+                   "says, cite it where relevant, and check it against independent evidence rather than "
+                   "taking it on trust:")
+        for i, src in enumerate(sources, 1):
+            if src.get("text"):
+                out.append(f"### Source S{i}: {src['ref']}\n```\n{src['text']}\n```")
+            else:
+                out.append(f"- S{i}: {src['ref']}")
+    return "\n".join(out) + "\n"
 
 
 def _memos(memos: dict, compact: bool = False) -> str:

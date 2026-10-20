@@ -70,7 +70,7 @@ class Debate:
 
     @classmethod
     def create(cls, topic: str, context: str, cfg: Config, rulings: list[str] = (), opinions: list[str] = (),
-               **kw) -> "Debate":
+               sources: list[dict] = (), **kw) -> "Debate":
         files = new_run(Path(cfg.out_dir), topic)
         d = cls(files, cfg, **kw)
         d.state = {
@@ -88,6 +88,8 @@ class Debate:
         d._tx(f"# {files.code} — Debate transcript: {topic}\n\nStarted {d.state['created']}.\n"
               f"Claude: {d.agents['claude'].label}. Codex: {d.agents['codex'].label}. "
               f"Referee: {d.agents['referee'].label}.\n")
+        if sources:
+            d._tx("\nStarting sources: " + ", ".join(x["ref"] for x in sources) + "\n")
         for r in d.state["rulings"]:
             d._tx(f"\n> **Moderator ruling:** {r}\n")
         for o in d.state["opinions"]:
@@ -96,22 +98,28 @@ class Debate:
 
     @classmethod
     def derive(cls, src: str | Path, cfg_overrides: dict, keep_rounds: int = 0, redo_openings: bool = False,
-               rulings: list[str] = (), opinions: list[str] = (), **kw) -> "Debate":
+               rulings: list[str] = (), opinions: list[str] = (), sources: list[dict] = (), **kw) -> "Debate":
         """A new run that inherits a finished run's research (and the first `keep_rounds` rounds) and
-        re-runs the rest, so the human can add an opinion or a ruling retrospectively."""
+        re-runs the rest, so the human can add an opinion or a ruling retrospectively. Adding sources
+        redoes the research too, since the briefings must start from them."""
         src_files = resolve(str(src), Path(Config().apply_overrides(cfg_overrides).out_dir))
         old = json.loads(src_files.state.read_text())
         cfg = Config().apply_overrides(old["config"]).apply_overrides(cfg_overrides)
         files = new_run(Path(cfg.out_dir), old["topic"])
         d = cls(files, cfg, **kw)
+        if sources:
+            redo_openings = True
         kept = [] if redo_openings else [r for r in old["rounds"] if r["round"] <= keep_rounds]
+        all_sources = list(old.get("sources", [])) + list(sources)
         d.state = {
             "code": files.code, "topic": old["topic"], "context": old["context"], "config": cfg.to_dict(),
             "created": datetime.now().isoformat(timespec="seconds"),
-            "derived_from": f"{old.get('code') or src_files.code} (kept research"
+            "sources": all_sources,
+            "derived_from": f"{old.get('code') or src_files.code} ("
+                            + ("new sources, research redone" if sources else "kept research")
                             + ("" if redo_openings else f" and rounds 0-{keep_rounds}") + ")",
-            "phase": "opening" if redo_openings else "rounds",
-            "memos": old["memos"], "rounds": kept, "closings": {}, "synthesis": None,
+            "phase": "research" if sources else ("opening" if redo_openings else "rounds"),
+            "memos": {} if sources else old["memos"], "rounds": kept, "closings": {}, "synthesis": None,
             "rulings": list(old.get("rulings", [])), "opinions": list(old.get("opinions", [])),
             "stop_reason": "", "max_rounds": cfg.max_rounds,
         }
@@ -152,7 +160,7 @@ class Debate:
         topic, ctx = self.state["topic"], self.state["context"]
         log.info("phase: research (both in parallel)")
         memos = self._both(lambda who: self.agents[who].ask(
-            prompts.debater_system(who, topic), prompts.research_prompt(topic, ctx),
+            prompts.debater_system(who, topic), prompts.research_prompt(topic, ctx, self.state.get("sources", [])),
             schemas.RESEARCH, web=True, what="research"))
         self.state["memos"] = memos
         for who, m in memos.items():
@@ -165,7 +173,7 @@ class Debate:
         topic, ctx, memos = self.state["topic"], self.state["context"], self.state["memos"]
         log.info("phase: opening positions (both in parallel)")
         turns = self._both(lambda who: self.agents[who].ask(
-            prompts.debater_system(who, topic), prompts.opening_prompt(topic, ctx, memos),
+            prompts.debater_system(who, topic), prompts.opening_prompt(topic, ctx, memos, self.state.get("sources", [])),
             schemas.TURN, web=True, what="opening"))
         for who in ("claude", "codex"):
             self._tx(f"\n## Opening: {prompts.DISPLAY[who]}\n\n{turns[who]['argument']}\n")

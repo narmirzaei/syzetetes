@@ -63,3 +63,28 @@ def test_rerun_inherits_and_adds(tmp_path):
     assert d2.state["phase"] == "done" and "Derived from" in d2.files.report.read_text()
     d3 = Debate.derive("D0001", {"out_dir": str(tmp_path)}, redo_openings=True, agents=agents)
     assert d3.state["phase"] == "opening" and d3.state["rounds"] == []
+
+
+def test_sources_flow_to_prompts_and_report(tmp_path):
+    from debate.runs import load_sources
+    f = tmp_path / "paper.txt"; f.write_text("Pensions depend on the worker ratio.")
+    sources = load_sources(["https://example.org/x", str(f)])
+    assert sources[0]["kind"] == "url" and sources[1]["kind"] == "file" and "worker ratio" in sources[1]["text"]
+    script = {"ledger": lambda r: "conceded"}
+    prompts = []
+    agents = {w: Fake(w, script) for w in ("claude", "codex")}
+    agents["referee"] = Fake("claude", script)
+    orig = agents["codex"].ask
+    def spy(system, prompt, schema, web, what):
+        prompts.append(prompt); return orig(system, prompt, schema, web, what)
+    agents["codex"].ask = spy
+    d = Debate.create("T?", "ctx", Config(out_dir=str(tmp_path), unattended=True), sources=sources, agents=agents)
+    d.run()
+    research = [p for p in prompts if p.startswith("# Task: independent research")][0]
+    assert "Starting point" in research and "S1: https://example.org/x" in research and "worker ratio" in research
+    rep = d.files.report.read_text()
+    assert "starting sources" in rep and "paper.txt" in rep
+    # rerun with a new source redoes research
+    d2 = Debate.derive(d.dir, {"out_dir": str(tmp_path)}, keep_rounds=1, agents=agents,
+                       sources=load_sources(["https://example.org/y"]))
+    assert d2.state["phase"] == "research" and d2.state["memos"] == {} and len(d2.state["sources"]) == 3
