@@ -1,0 +1,18 @@
+# Seed the debate with your own material: context, sources both sides must read, a stated bias, and a fact.
+topic = "Should a solo founder write product documentation before writing any code?"
+note = "I am a solo technical founder with 6 months of runway. I want a rule I can actually follow."
+context_files = ["my-notes.md"]                   # relative to this file
+sources = [
+  "https://tom.preston-werner.com/2010/08/23/readme-driven-development.html",
+  "https://www.pragmaticengineer.com/working-backwards",
+]
+opinions = ["I suspect docs-first only pays off once there is a second person on the team."]
+facts = ["Assume the product is a developer tool with an API; consumer apps are out of scope."]
+
+[models]
+claude_model = "sonnet"
+codex_effort = "medium"
+
+[debate]
+max_rounds = 5
+pause = "referee"

@@ -1,0 +1,7 @@
+# Worried Claude is refereeing a Claude-vs-Codex debate? Let Codex keep the ledger and write the synthesis.
+topic = "Will AI coding agents reduce the number of professional software developers by 2035?"
+
+[models]
+referee = "codex"
+referee_model = "gpt-6.1-sol"
+referee_effort = "medium"

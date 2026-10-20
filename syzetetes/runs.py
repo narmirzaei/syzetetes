@@ -4,6 +4,7 @@ Layout inside the output directory:
 
     D0001-<topic-slug>/
         D0001.json               state (resumable)
+        D0001-00-spec.toml       effective spec: re-run it with `syzetetes run`
         D0001-01-transcript.md   live log, appended while the debate runs
         D0001-02-report.md       final referenced report
         D0001-03-chat.md         log of grounded Q&A sessions (created by `syzetetes chat`)
@@ -28,6 +29,8 @@ class RunFiles:
 
     @property
     def state(self) -> Path: return self.dir / f"{self.code}.json"
+    @property
+    def spec(self) -> Path: return self.dir / f"{self.code}-00-spec.toml"
     @property
     def transcript(self) -> Path: return self.dir / f"{self.code}-01-transcript.md"
     @property

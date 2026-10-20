@@ -69,6 +69,7 @@ def load_config(overrides: dict | None = None) -> Config:
             cfg.apply_overrides(tomllib.load(f))
     if overrides:
         cfg.apply_overrides(overrides)
+    cfg.out_dir = str(Path(cfg.out_dir).expanduser())
     if cfg.unattended:
         cfg.pause = "never"
     if cfg.pause == "never":

@@ -1,0 +1,11 @@
+# Replay a finished run from after round 2 with a new fact injected. Research and rounds 0-2 are
+# inherited from D0001; rounds 3+, closings and synthesis are redone as a new run (D0002, D0003, ...).
+facts = ["Korea's 2024 total fertility rate was 0.75 (Statistics Korea, February 2025)."]
+opinions = ["I think both of you are too quick to call the pension problem 'fixable'."]
+
+[rerun]
+from = "D0001"
+keep_rounds = 2
+
+[debate]
+pause = "disputes"      # and this time, let me tie-break the rest

@@ -10,14 +10,19 @@ from pathlib import Path
 from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
 from .runs import list_runs, load_sources, load_state, resolve
+from .spec import DEFAULT_NAME, config_overrides, inputs, load_spec, template
 
 
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="syzetetes", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    run = sub.add_parser("run", help="start a new debate")
-    run.add_argument("topic", help="the question or proposition to debate")
+    init = sub.add_parser("init", help=f"write a commented spec template ({DEFAULT_NAME}) to fill in and run")
+    init.add_argument("path", nargs="?", default=DEFAULT_NAME)
+    init.add_argument("--force", action="store_true", help="overwrite an existing file")
+
+    run = sub.add_parser("run", help="start a new debate from a topic or a spec file")
+    run.add_argument("topic", help="the question to debate, or a .toml spec file (see `syzetetes init`)")
     run.add_argument("--context", action="append", default=[], metavar="FILE",
                      help="file with extra context for both sides (repeatable); use '-' for stdin")
     run.add_argument("--note", default="", help="short extra context given inline")
@@ -109,6 +114,15 @@ def _main(argv: list[str] | None) -> int:
     args = _parser().parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stderr)
+    if args.cmd == "init":
+        path = Path(args.path)
+        if path.exists() and not args.force:
+            print(f"error: {path} exists (use --force to overwrite)", file=sys.stderr)
+            return 2
+        path.write_text(template())
+        print(f"wrote {path}. Fill in 'topic' (and anything else), then: syzetetes run {path}")
+        return 0
+
     if args.cmd == "config":
         cfg = load_config()
         print(f"# effective config (user file: {USER_CONFIG}{'' if USER_CONFIG.exists() else ' — not present'})")
@@ -169,16 +183,35 @@ def _main(argv: list[str] | None) -> int:
         print(f"\nReport: {report}")
         return 0
 
-    overrides = {k: v for k, v in vars(args).items()
-                 if k not in ("cmd", "topic", "context", "note", "opinion", "fact", "source") and v is not None}
-    cfg = load_config(overrides)
-    context_parts = [args.note] if args.note else []
+    flag_overrides = {k: v for k, v in vars(args).items()
+                      if k not in ("cmd", "topic", "context", "note", "opinion", "fact", "source") and v is not None}
+    spec_path = Path(args.topic)
+    if spec_path.suffix == ".toml" and spec_path.is_file():
+        spec = load_spec(spec_path)
+        inp = inputs(spec, spec_path.parent)
+        overrides = {**config_overrides(spec), **flag_overrides}          # flags beat the file
+        topic = inp["topic"]
+        context_parts = [inp["context"], args.note]
+        sources = inp["sources"] + args.source
+        opinions = inp["opinions"] + args.opinion
+        facts = inp["facts"] + args.fact
+        rr = spec.get("rerun")
+    else:
+        overrides, topic, context_parts = flag_overrides, args.topic, [args.note]
+        sources, opinions, facts, rr = args.source, args.opinion, args.fact, None
     for f in args.context:
         context_parts.append(sys.stdin.read() if f == "-" else Path(f).read_text())
-    context = "\n\n".join(p.strip() for p in context_parts if p.strip())
+    context = "\n\n".join(p.strip() for p in context_parts if p and p.strip())
 
-    d = Debate.create(args.topic, context, cfg, facts=args.fact, opinions=args.opinion,
-                      sources=load_sources(args.source))
+    if rr:
+        cfg_probe = load_config(overrides)
+        d = Debate.derive(resolve(str(rr["from"]), Path(cfg_probe.out_dir)).dir, overrides,
+                          keep_rounds=int(rr.get("keep_rounds", 0)), redo_openings=bool(rr.get("redo_openings", False)),
+                          facts=facts, opinions=opinions, sources=load_sources(sources))
+        log.info("run %s derived from %s: %s", d.code, rr["from"], d.dir)
+        return _drive(d)
+    cfg = load_config(overrides)
+    d = Debate.create(topic, context, cfg, facts=facts, opinions=opinions, sources=load_sources(sources))
     log.info("run %s: %s", d.code, d.dir)
     return _drive(d)
 

@@ -1,0 +1,16 @@
+# A real run: the spec that produced the population-collapse debate (Opus vs gpt-6.1-sol, 4 rounds).
+topic = "Is sub-replacement fertility ('population collapse') a serious problem that justifies pro-natal policy, or is the worker-to-retiree 'Ponzi' concern a fixable design flaw in pension systems rather than a reason to need more children? Separate fiscal sustainability, long-run growth and innovation, and welfare of future people."
+note = "I am evaluating an economist's claim that fewer babies is not a problem and that growth-dependent welfare systems are effectively a Ponzi scheme. I want to know which parts of that claim survive scrutiny."
+
+[models]
+claude_model = "opus"
+claude_effort = "high"
+codex_model = "gpt-6.1-sol"
+codex_effort = "high"
+referee = "claude"
+referee_model = "sonnet"
+referee_effort = "medium"
+
+[debate]
+max_rounds = 4
+pause = "never"

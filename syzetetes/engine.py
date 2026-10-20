@@ -20,6 +20,7 @@ from .config import Config
 from .report import render_report
 from .review import write_review
 from .runs import RunFiles, load_state, new_run, resolve
+from .spec import effective_spec
 
 log = logging.getLogger("syzetetes")
 
@@ -87,6 +88,7 @@ class Debate:
         for text in opinions:
             d.state["opinions"].append(f"(before the debate) {text}")
         d._save()
+        files.spec.write_text(effective_spec(d.state))
         d._tx(f"# {files.code} — Debate transcript: {topic}\n\nStarted {d.state['created']}.\n"
               f"Claude: {d.agents['claude'].label}. Codex: {d.agents['codex'].label}. "
               f"Referee: {d.agents['referee'].label}.\n")
@@ -131,6 +133,7 @@ class Debate:
         for text in opinions:
             d.state["opinions"].append(f"({at}, added retrospectively) {text}")
         d._save()
+        files.spec.write_text(effective_spec(d.state))
         d._tx(f"# {files.code} — Debate transcript: {old['topic']}\n\nStarted {d.state['created']}, "
               f"derived from {d.state['derived_from']}; see that run's transcript for the inherited part.\n")
         for r in d.state["facts"]:

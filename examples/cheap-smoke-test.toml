@@ -1,0 +1,14 @@
+# The cheapest possible run, to check both CLIs work before spending real quota.
+topic = "Tabs or spaces for Python?"
+
+[models]
+claude_model = "haiku"
+claude_effort = "low"
+codex_effort = "low"
+referee_model = "haiku"
+referee_effort = "low"
+
+[debate]
+max_rounds = 1
+research = false
+pause = "never"

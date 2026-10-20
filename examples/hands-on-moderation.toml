@@ -1,0 +1,10 @@
+# You want to tie-break every disagreement yourself. The run pauses after any round that still has a
+# disputed claim; at the prompt type `opinion: ...`, `fact: ...`, `continue`, `stop` or `extend 2`.
+topic = "Is remote work net positive for early-stage startups?"
+
+[debate]
+max_rounds = 8
+pause = "disputes"
+# Or pause only when it gets interesting:
+# pause = "referee"
+# pause_when = "disputed >= 2 and round >= 2"
