@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "debate"
+version = "0.1.0"
+description = "Claude and Codex research a topic, debate it in structured rounds, and produce a referenced Markdown report."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+debate = "debate.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["debate*"]
