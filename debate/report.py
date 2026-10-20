@@ -129,8 +129,12 @@ def render_report(state: dict, agents: dict | None = None) -> str:
     out.append(f"| Claims | {_counts(ledger)} |")
     if state.get("context"):
         out.append(f"\n**Author's context.** {c(state['context'])}")
+    if state.get("derived_from"):
+        out.append(f"\n**Derived from** {state['derived_from']}.")
     if state.get("rulings"):
-        out.append("\n**Moderator rulings.**\n" + "\n".join(f"- {r}" for r in state["rulings"]))
+        out.append("\n**Moderator rulings (binding).**\n" + "\n".join(f"- {r}" for r in state["rulings"]))
+    if state.get("opinions"):
+        out.append("\n**Human's stated opinion (not binding).**\n" + "\n".join(f"- {o}" for o in state["opinions"]))
 
     if syn:
         out.append("\n## Executive summary\n\n" + c(syn["executive_summary"]))

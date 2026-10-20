@@ -17,10 +17,12 @@ Markdown report of what they agreed on, what they still dispute, and why.
    ledger, flags repetition, and nudges a side that is restating itself.
 4. **Termination.** The debate ends when every claim is settled, when both sides say they have nothing
    new, when the ledger has not moved for `stable_rounds` rounds, or at the round cap.
-5. **Human checkpoints.** When the referee hits something the models cannot resolve alone (conflicting
-   sources, a value judgement, a scope question, a stall) the run pauses and asks you. You can type
-   `continue`, `stop`, `extend 3`, or a ruling in plain words that both debaters then treat as binding.
-   `--unattended` disables this.
+5. **Human checkpoints.** The run pauses and asks you when the referee hits something the models cannot
+   resolve alone (conflicting sources, a value judgement, a scope question, a stall), or whenever your
+   pause policy says so (see below). At a checkpoint you can type:
+   - `continue` or `stop`, or `extend 3` at the round cap;
+   - `opinion: <your view>`: not binding. Both debaters must engage with it and may disagree, with reasons.
+   - anything else: a binding ruling (a veto). Both debaters treat it as settled and the debate changes course.
 6. **Closing and synthesis.** Each side writes a closing statement. The referee model writes the
    executive summary, per-claim verdicts, the strongest case for and against, and guidance for you.
 7. **Report.** `<code>-02-report.md` with every argument, the agreed / conceded / disputed / agree-to-disagree
@@ -28,6 +30,43 @@ Markdown report of what they agreed on, what they still dispute, and why.
    reference list. Inline URLs are replaced by `[n]` markers.
 
 While it runs, `<code>-01-transcript.md` in the run folder is appended live so you can read along.
+
+## Steering the debate with your own opinion
+
+Two kinds of input, both recorded in the report:
+
+| | effect |
+|---|---|
+| **opinion** | Non-binding. Debaters and referee see "the human currently thinks X" and must argue with it, not defer to it. |
+| **ruling** | Binding (a veto). Treated as settled; debaters stop arguing it and the course changes. |
+
+**Up front**, when starting a run:
+
+```
+.venv/bin/debate run "..." --opinion "I suspect pensions are the real issue, not fertility."
+.venv/bin/debate run "..." --ruling "Ignore climate arguments; scope is economics only."
+```
+
+**During the run**, choose when it pauses for you:
+
+```
+--pause referee     # default: only when the referee asks or the ledger stalls
+--pause disputes    # after every round that still has a disputed claim: you decide how to tie it
+--pause always      # after every round
+--pause never       # same as --unattended
+--pause-when "disputed >= 2 and round >= 2"   # any expression over round, disputed, open, agreed,
+                                              # conceded, agree_to_disagree, total, unchanged
+```
+
+**Retrospectively**, after a run is done, inject an opinion or ruling and re-run from a chosen point.
+A new coded run is created; the research (and the rounds you keep) are inherited, the rest is redone:
+
+```
+.venv/bin/debate rerun D0001 --opinion "I think the Ponzi framing is right."        # redo from after the openings
+.venv/bin/debate rerun D0001 --keep-rounds 2 --ruling "Treat K4 as settled for Codex." # keep rounds 0-2, redo from 3
+.venv/bin/debate rerun D0001 --redo-openings --opinion "..."                          # keep research only
+.venv/bin/debate rerun D0001 --keep-rounds 1 --pause disputes                          # and change the pause policy
+```
 
 ## Run folders and codes
 

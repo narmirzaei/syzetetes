@@ -36,7 +36,16 @@ class Config:
     max_rounds: int = 8
     stable_rounds: int = 2               # stop when the ledger has not changed status for this many rounds
     research: bool = True
-    unattended: bool = False             # never pause for the human; deadlocks become agree-to-disagree
+    unattended: bool = False             # alias for pause = "never"
+    # When to pause and ask the human (in addition to the referee asking):
+    #   never    - run through; deadlocks become agree-to-disagree
+    #   referee  - only when the referee asks or the ledger stalls (default)
+    #   disputes - after every round that still has a disputed claim
+    #   always   - after every round
+    pause: str = "referee"
+    # Optional expression over round, disputed, open, agreed, conceded, agree_to_disagree, total,
+    # unchanged (rounds without a status change). Pauses when true, e.g. "disputed >= 2 and round >= 2".
+    pause_when: str = ""
 
     # Runtime
     timeout_s: int = 1800                # per CLI call
@@ -60,6 +69,12 @@ def load_config(overrides: dict | None = None) -> Config:
             cfg.apply_overrides(tomllib.load(f))
     if overrides:
         cfg.apply_overrides(overrides)
+    if cfg.unattended:
+        cfg.pause = "never"
+    if cfg.pause == "never":
+        cfg.unattended = True
+    if cfg.pause not in ("never", "referee", "disputes", "always"):
+        raise SystemExit(f"pause must be never|referee|disputes|always, got {cfg.pause!r}")
     if cfg.referee not in ("claude", "codex"):
         raise ValueError("referee must be 'claude' or 'codex'")
     return cfg
