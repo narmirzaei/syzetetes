@@ -73,5 +73,20 @@ def test_cli_parsers_build():
     p = _parser()
     a = p.parse_args(["rerun", "D0001", "--keep-rounds", "2", "--opinion", "x", "--pause", "disputes", "--out", "o"])
     assert (a.run, a.keep_rounds, a.opinion, a.pause, a.out_dir) == ("D0001", 2, ["x"], "disputes", "o")
-    a = p.parse_args(["run", "t", "--ruling", "r", "--pause-when", "disputed >= 1"])
-    assert a.ruling == ["r"] and a.pause_when == "disputed >= 1"
+    a = p.parse_args(["run", "t", "--fact", "r", "--pause-when", "disputed >= 1"])
+    assert a.fact == ["r"] and a.pause_when == "disputed >= 1"
+
+
+def test_review_html_embeds_state(tmp_path):
+    from syzetetes.review import write_review
+    from tests.test_engine import _run
+    d, _ = _run(tmp_path, {"ledger": lambda r: "disputed" if r < 2 else "conceded"}, {"unattended": True})
+    out = write_review(d.files, d.state)
+    html = out.read_text()
+    assert out.name == "D0001-04-review.html" and "<!doctype html>" in html
+    assert '"topic": "Should we Test?"' in html and '"rounds"' in html and "</script>" in html
+    assert "<\\/" in html or "</" not in json_payload(html)
+
+
+def json_payload(html):
+    return html.split("const S = ", 1)[1].split(";\n", 1)[0]

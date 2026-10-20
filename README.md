@@ -4,7 +4,8 @@
 question, argue it out in structured rounds under a bookkeeping referee, and hand you a referenced
 Markdown report of what they agreed on, what they still dispute, and why. You can seed it with your own
 context, sources and opinions, steer it while it runs, re-run it with hindsight, and afterwards ask
-questions that are answered only from what the debate produced.
+questions that are answered only from what the debate produced. An interactive review page shows how every
+claim moved, round by round, until the synthesis.
 
 - **Claude** runs through the [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI on your Claude subscription.
 - **Codex** runs through the [Codex](https://github.com/openai/codex) CLI on your ChatGPT subscription.
@@ -32,7 +33,7 @@ narrowed to their crux, and an honest list of what nobody could settle.
    when the ledger has not moved for `stable_rounds` rounds, or at the round cap.
 5. **Human checkpoints.** The run pauses and asks you when the referee hits something the models cannot
    resolve alone, or whenever your pause policy says so. You can let it continue, stop it, give your
-   opinion, or issue a binding ruling. See [Steering](#steering-the-debate-with-your-own-opinion).
+   opinion, or issue a binding fact. See [Steering](#steering-the-debate-with-your-own-opinion).
 6. **Closing and synthesis.** Each side writes a closing statement. The referee model writes the executive
    summary, per-claim verdicts, the strongest case for and against, and guidance for you.
 7. **Report.** Every argument, the agreed / conceded / disputed / agree-to-disagree points, closing
@@ -55,7 +56,8 @@ Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex 
 ```
 .venv/bin/syzetetes run "Is remote work net positive for early-stage startups?"
 .venv/bin/syzetetes list
-.venv/bin/syzetetes chat D0001
+.venv/bin/syzetetes review D0001      # interactive page: how the synthesis was reached
+.venv/bin/syzetetes chat D0001        # ask questions, answered only from the report
 ```
 
 More options:
@@ -88,6 +90,7 @@ debates/
     D0001-01-transcript.md   live log
     D0001-02-report.md       final referenced report
     D0001-03-chat.md         Q&A log, written by `syzetetes chat`
+    D0001-04-review.html     interactive review, written at the end of a run and by `syzetetes review`
 ```
 
 `resume`, `render`, `chat` and `rerun` accept the code (`D0001`, or just `d1`) or a path to the folder.
@@ -115,17 +118,20 @@ Two kinds of input, both recorded in the report and shown to the debaters, the r
 | | effect |
 |---|---|
 | **opinion** | Not binding. Debaters and referee see "the human currently thinks X" and must engage with it: agree if the evidence supports it, say why if it does not. They are told not to defer to it or flatter it. |
-| **ruling** | Binding (a veto). Treated as settled; debaters stop arguing it and the course of the debate changes. |
+| **fact** | Binding. Treated as true for this debate: debaters build on it, stop arguing against it, and the course of the debate changes. |
+
+Either can be given at three moments: before the debate, at a pause in the middle, or retrospectively
+at any round of a finished debate (which replays the rest and produces a new version).
 
 **Up front**, when starting a run:
 
 ```
 syzetetes run "..." --opinion "I suspect pensions are the real issue, not fertility."
-syzetetes run "..." --ruling "Ignore climate arguments; scope is economics only."
+syzetetes run "..." --fact "Ignore climate arguments; scope is economics only."
 ```
 
 **During the run**, at any checkpoint, type `continue`, `stop`, `extend 3` (at the round cap),
-`opinion: <your view>`, or anything else, which is taken as a binding ruling. Choose when it pauses:
+`opinion: <your view>` or `fact: <statement>`. The debate then continues with it. Choose when it pauses:
 
 ```
 --pause referee     # default: only when the referee asks or the ledger stalls
@@ -136,15 +142,34 @@ syzetetes run "..." --ruling "Ignore climate arguments; scope is economics only.
                                               # conceded, agree_to_disagree, total, unchanged
 ```
 
-**Retrospectively**, after a run is done, inject an opinion or ruling and re-run from a chosen point.
-A new coded run is created; the research (and the rounds you keep) are inherited, the rest is redone:
+**Retrospectively**, after a run is done, inject an opinion or fact at any round and replay from there.
+A new coded run is created; the research and the rounds before the injection point are inherited, the
+rest is replayed, and the report says which run it was derived from:
 
 ```
-syzetetes rerun D0001 --opinion "I think the Ponzi framing is right."          # redo from after the openings
-syzetetes rerun D0001 --keep-rounds 2 --ruling "Treat K4 as settled for Codex." # keep rounds 0-2, redo from 3
-syzetetes rerun D0001 --redo-openings --opinion "..."                           # keep research only
-syzetetes rerun D0001 --keep-rounds 1 --pause disputes                          # and change the pause policy
+syzetetes rerun D0001 --opinion "I think the Ponzi framing is right."         # inject after the openings, replay rounds
+syzetetes rerun D0001 --keep-rounds 2 --fact "Korea's 2024 TFR was 0.75."     # inject after round 2, replay from 3
+syzetetes rerun D0001 --redo-openings --opinion "..."                          # inject before the openings
+syzetetes rerun D0001 --keep-rounds 1 --pause disputes                         # replay from round 2 with a new pause policy
 ```
+
+## Reviewing how the synthesis was reached
+
+```
+syzetetes review D0001            # writes D0001-04-review.html and opens it
+```
+
+A single self-contained HTML page, no network needed:
+
+- a stacked bar per round showing the ledger's status mix moving toward settlement;
+- a claim-by-round grid, colour-coded, with a dot wherever a status changed. Click a cell to see both
+  sides' positions and the crux at that round, plus each debater's stance and reasoning on that claim
+  that round and the sources they cited. Click a claim for its full history and the synthesis verdict,
+  or a round header for the full arguments, referee nudges and repetition flags;
+- the round strip with the referee's summaries and every human intervention in place;
+- the executive summary, strongest cases, guidance, closing statements and research briefings.
+
+"Show only claims that moved" filters the grid to the claims whose status changed.
 
 ## Asking questions about a finished debate
 
@@ -190,14 +215,14 @@ CLI flags override the file.
   free prose, and a referee that drops a claim has it restored automatically.
 - The referee model can be either CLI. If you worry about Claude refereeing a Claude-vs-Codex debate,
   run with `--referee codex` and compare.
-- Human input is typed: opinions and rulings are stored separately, rendered separately in every prompt,
+- Human input is typed: opinions and facts are stored separately, rendered separately in every prompt,
   and labelled in the report, so a reader can always tell what the models concluded on their own.
 
 ## Layout
 
 ```
 syzetetes/
-  cli.py       commands: run, resume, rerun, chat, list, render, config
+  cli.py       commands: run, resume, rerun, review, chat, list, render, config
   engine.py    phases, ledger, termination, checkpoints, derive (rerun)
   agents.py    subprocess wrappers for the Claude Code and Codex CLIs
   prompts.py   every prompt; debaters are symmetric
@@ -205,6 +230,7 @@ syzetetes/
   report.py    Markdown report with numbered references
   runs.py      run codes, folder layout, source loading
   chat.py      grounded Q&A over a finished report
+  review.py    interactive HTML review of the ledger's evolution
   config.py    defaults, user config file, CLI overrides
 tests/         scripted fake agents; no CLIs or network needed
 ```

@@ -107,11 +107,12 @@ writer deciding what to say about this topic, not the easiest to defend.
 {_memos(memos)}"""
 
 
-def human_input_md(rulings: list[str], opinions: list[str]) -> str:
+def human_input_md(facts: list[str], opinions: list[str]) -> str:
     parts = []
-    if rulings:
-        parts.append("## Moderator rulings (binding)\nThe human moderator has decided the following. "
-                     "Treat each as settled; do not argue against it.\n" + "\n".join(f"- {r}" for r in rulings))
+    if facts:
+        parts.append("## Facts established by the human (binding)\nThe human has established the following as "
+                     "fact for this debate. Treat each as true and settled; build on it, do not argue against it.\n"
+                     + "\n".join(f"- {r}" for r in facts))
     if opinions:
         parts.append("## The human's own opinion (not binding)\nThe human reader has told you what they "
                      "currently think. Engage with it seriously: if the evidence supports it, say so; if it "
@@ -121,11 +122,11 @@ def human_input_md(rulings: list[str], opinions: list[str]) -> str:
 
 
 def turn_prompt(me: str, topic: str, context: str, memos: dict, ledger: dict, opp_turn: dict | None,
-                own_prev: dict | None, nudge: str, rulings: list[str], round_no: int, max_rounds: int,
+                own_prev: dict | None, nudge: str, facts: list[str], round_no: int, max_rounds: int,
                 opinions: list[str] = ()) -> str:
     them = DISPLAY[OTHER[me]]
     parts = [f"# Task: round {round_no} of at most {max_rounds}", f"Topic: {topic}", _ctx(context),
-             human_input_md(rulings, list(opinions))]
+             human_input_md(facts, list(opinions))]
     if nudge:
         parts.append(f"## Referee note to you\n{nudge}")
     parts.append("## Current ledger\n" + _ledger_md(ledger))
@@ -144,9 +145,9 @@ if a claim can be checked. Then write your argument.""")
 
 
 def referee_prompt(topic: str, ledger: dict | None, turns: dict, round_no: int, prev_ledger: dict | None,
-                   rulings: list[str], opinions: list[str] = ()) -> str:
+                   facts: list[str], opinions: list[str] = ()) -> str:
     parts = [f"# Task: update the ledger after round {round_no}", f"Topic: {topic}",
-             human_input_md(rulings, list(opinions))]
+             human_input_md(facts, list(opinions))]
     parts.append("## Ledger before this round\n" + (_ledger_md(ledger) if ledger else "(none: this is the opening round)"))
     if prev_ledger and ledger:
         parts.append("## Ledger one round earlier (to detect stalls)\n" + _ledger_md(prev_ledger, statuses_only=True))
@@ -174,12 +175,12 @@ about uncertainty. No new claims.
 
 
 def synthesis_prompt(topic: str, context: str, ledger: dict, closings: dict, memos: dict,
-                     rulings: list[str] = (), opinions: list[str] = ()) -> str:
+                     facts: list[str] = (), opinions: list[str] = ()) -> str:
     return f"""# Task: write the final report content
 
 Topic: {topic}
 {_ctx(context)}
-{human_input_md(list(rulings), list(opinions))}
+{human_input_md(list(facts), list(opinions))}
 ## Final ledger
 {_ledger_md(ledger)}
 

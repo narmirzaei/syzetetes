@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
-from .runs import list_runs, load_sources, resolve
+from .runs import list_runs, load_sources, load_state, resolve
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -24,7 +24,7 @@ def _parser() -> argparse.ArgumentParser:
     _human_opts(run)
     _model_opts(run)
 
-    rr = sub.add_parser("rerun", help="re-run a finished debate from a chosen round with your opinion or ruling added")
+    rr = sub.add_parser("rerun", help="re-run a finished debate from a chosen round with your opinion or fact added")
     rr.add_argument("run", help="run code (D0001) or path to the run folder")
     rr.add_argument("--keep-rounds", type=int, default=0, metavar="N",
                     help="inherit rounds 0..N (0 = keep only the opening positions; default 0)")
@@ -43,6 +43,10 @@ def _parser() -> argparse.ArgumentParser:
     _run_ref(ch)
     ch.add_argument("question", nargs="?", help="ask one question and exit (default: interactive)")
 
+    rv = sub.add_parser("review", help="write (and open) the interactive HTML review of how the synthesis was reached")
+    _run_ref(rv)
+    rv.add_argument("--no-open", action="store_true", help="only write the file; do not open it in the browser")
+
     ls = sub.add_parser("list", help="list runs and their codes")
     ls.add_argument("--out", dest="out_dir", help="directory holding run folders (default: ./debates)")
 
@@ -54,8 +58,8 @@ def _human_opts(p: argparse.ArgumentParser):
     h = p.add_argument_group("your input")
     h.add_argument("--opinion", action="append", default=[], metavar="TEXT",
                    help="your view, not binding: the debaters must engage with it (repeatable)")
-    h.add_argument("--ruling", action="append", default=[], metavar="TEXT",
-                   help="a binding ruling / veto both debaters treat as settled (repeatable)")
+    h.add_argument("--fact", action="append", default=[], metavar="TEXT",
+                   help="binding: both debaters treat it as true for this debate (repeatable)")
     h.add_argument("--source", action="append", default=[], metavar="URL|FILE",
                    help="a source both sides must start from and cite (repeatable); on rerun, redoes research")
 
@@ -112,7 +116,7 @@ def _main(argv: list[str] | None) -> int:
             print(f"{k} = {json.dumps(v)}")
         return 0
 
-    if args.cmd in ("render", "resume", "chat", "list", "rerun"):
+    if args.cmd in ("render", "resume", "chat", "list", "rerun", "review"):
         out_dir = Path(args.out_dir or load_config().out_dir)
 
     if args.cmd == "list":
@@ -124,10 +128,20 @@ def _main(argv: list[str] | None) -> int:
 
     if args.cmd == "render":
         files = resolve(args.run, out_dir)
-        state = json.loads(files.state.read_text())
+        state = load_state(files)
         d = Debate(files, Config().apply_overrides(state["config"]), agents={})
         d.state = state
         print(d._write_report())
+        return 0
+
+    if args.cmd == "review":
+        from .review import write_review
+        files = resolve(args.run, out_dir)
+        out = write_review(files, load_state(files))
+        print(out)
+        if not args.no_open:
+            import webbrowser
+            webbrowser.open(out.resolve().as_uri())
         return 0
 
     if args.cmd == "chat":
@@ -137,10 +151,10 @@ def _main(argv: list[str] | None) -> int:
 
     if args.cmd == "rerun":
         overrides = {k: v for k, v in vars(args).items()
-                     if k not in ("cmd", "run", "keep_rounds", "redo_openings", "opinion", "ruling", "source")
+                     if k not in ("cmd", "run", "keep_rounds", "redo_openings", "opinion", "fact", "source")
                      and v is not None}
         d = Debate.derive(resolve(args.run, out_dir).dir, overrides, keep_rounds=args.keep_rounds,
-                          redo_openings=args.redo_openings, rulings=args.ruling, opinions=args.opinion,
+                          redo_openings=args.redo_openings, facts=args.fact, opinions=args.opinion,
                           sources=load_sources(args.source))
         log.info("run %s derived from %s: %s", d.code, args.run, d.dir)
         return _drive(d)
@@ -156,14 +170,14 @@ def _main(argv: list[str] | None) -> int:
         return 0
 
     overrides = {k: v for k, v in vars(args).items()
-                 if k not in ("cmd", "topic", "context", "note", "opinion", "ruling", "source") and v is not None}
+                 if k not in ("cmd", "topic", "context", "note", "opinion", "fact", "source") and v is not None}
     cfg = load_config(overrides)
     context_parts = [args.note] if args.note else []
     for f in args.context:
         context_parts.append(sys.stdin.read() if f == "-" else Path(f).read_text())
     context = "\n\n".join(p.strip() for p in context_parts if p.strip())
 
-    d = Debate.create(args.topic, context, cfg, rulings=args.ruling, opinions=args.opinion,
+    d = Debate.create(args.topic, context, cfg, facts=args.fact, opinions=args.opinion,
                       sources=load_sources(args.source))
     log.info("run %s: %s", d.code, d.dir)
     return _drive(d)
@@ -178,7 +192,7 @@ def _drive(d: Debate) -> int:
     except KeyboardInterrupt:
         print(f"\nInterrupted. Resume with: syzetetes resume {d.code}", file=sys.stderr)
         return 130
-    print(f"\nReport: {report}\nAsk about it: syzetetes chat {d.code}")
+    print(f"\nReport: {report}\nReview how it got there: syzetetes review {d.code}\nAsk about it: syzetetes chat {d.code}")
     return 0
 
 

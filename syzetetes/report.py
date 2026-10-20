@@ -135,8 +135,8 @@ def render_report(state: dict, agents: dict | None = None) -> str:
             for i, x in enumerate(state["sources"], 1)))
     if state.get("derived_from"):
         out.append(f"\n**Derived from** {state['derived_from']}.")
-    if state.get("rulings"):
-        out.append("\n**Moderator rulings (binding).**\n" + "\n".join(f"- {r}" for r in state["rulings"]))
+    if state.get("facts"):
+        out.append("\n**Facts set by the human (binding).**\n" + "\n".join(f"- {r}" for r in state["facts"]))
     if state.get("opinions"):
         out.append("\n**Human's stated opinion (not binding).**\n" + "\n".join(f"- {o}" for o in state["opinions"]))
 

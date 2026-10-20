@@ -6,12 +6,14 @@ Layout inside the output directory:
         D0001.json               state (resumable)
         D0001-01-transcript.md   live log, appended while the debate runs
         D0001-02-report.md       final referenced report
-        D0001-03-chat.md         log of grounded Q&A sessions (created by `debate chat`)
+        D0001-03-chat.md         log of grounded Q&A sessions (created by `syzetetes chat`)
+        D0001-04-review.html     interactive review of how the synthesis was reached
 
 Any command that takes a run accepts either the code (`D0001`) or a path to the folder.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +34,8 @@ class RunFiles:
     def report(self) -> Path: return self.dir / f"{self.code}-02-report.md"
     @property
     def chat_log(self) -> Path: return self.dir / f"{self.code}-03-chat.md"
+    @property
+    def review(self) -> Path: return self.dir / f"{self.code}-04-review.html"
 
 
 def slugify(topic: str, n: int = 50) -> str:
@@ -104,3 +108,13 @@ def load_sources(refs: list[str]) -> list[dict]:
             text = text[:MAX_SOURCE_CHARS] + f"\n[... truncated at {MAX_SOURCE_CHARS} characters]"
         out.append({"ref": str(p), "kind": "file", "text": text})
     return out
+
+
+def load_state(files: RunFiles) -> dict:
+    """Read a run's state, upgrading older layouts ("rulings" became "facts")."""
+    state = json.loads(files.state.read_text())
+    if "facts" not in state:
+        state["facts"] = state.pop("rulings", [])
+    state.setdefault("opinions", [])
+    state.setdefault("sources", [])
+    return state

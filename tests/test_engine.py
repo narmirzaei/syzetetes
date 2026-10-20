@@ -99,7 +99,7 @@ def test_nothing_new_stops(tmp_path):
     assert "nothing new" in d.state["stop_reason"]
 
 
-def test_human_ruling_and_stop(tmp_path):
+def test_human_fact_and_stop(tmp_path):
     replies = iter(["Treat K1 as a value judgement.", "stop"])
     seen = []
 
@@ -109,9 +109,9 @@ def test_human_ruling_and_stop(tmp_path):
 
     d, _ = _run(tmp_path, {"ledger": lambda r: "disputed", "needs_human": lambda r: r >= 1}, checkpoint=cp)
     assert len(seen) == 2
-    assert d.state["rulings"] == ["(after round 1) Treat K1 as a value judgement."]
+    assert d.state["facts"] == ["(after round 1) Treat K1 as a value judgement."]
     assert d.state["stop_reason"] == "Human stopped the debate after round 2."
-    assert "Moderator rulings" in d.files.report.read_text()
+    assert "Facts set by the human" in d.files.report.read_text()
 
 
 def test_round_cap_extend(tmp_path):

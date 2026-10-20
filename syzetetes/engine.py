@@ -18,7 +18,8 @@ from . import prompts, schemas
 from .agents import Agent, make_agent
 from .config import Config
 from .report import render_report
-from .runs import RunFiles, new_run, resolve
+from .review import write_review
+from .runs import RunFiles, load_state, new_run, resolve
 
 log = logging.getLogger("syzetetes")
 
@@ -31,7 +32,8 @@ def console_checkpoint(question: str, options: list[str]) -> str:
     print(question)
     print("\nOptions: " + " | ".join(options))
     print("  opinion: <text>   your view; the debaters must weigh it but may disagree")
-    print("  <anything else>   a binding ruling (veto): both debaters treat it as settled")
+    print("  fact: <text>      binding; both debaters treat it as true from here on")
+    print("  <anything else>   also taken as a binding fact")
     while True:
         try:
             reply = input("> ").strip()
@@ -69,7 +71,7 @@ class Debate:
     # ------------------------------------------------------------ lifecycle
 
     @classmethod
-    def create(cls, topic: str, context: str, cfg: Config, rulings: list[str] = (), opinions: list[str] = (),
+    def create(cls, topic: str, context: str, cfg: Config, facts: list[str] = (), opinions: list[str] = (),
                sources: list[dict] = (), **kw) -> "Debate":
         files = new_run(Path(cfg.out_dir), topic)
         d = cls(files, cfg, **kw)
@@ -77,11 +79,11 @@ class Debate:
             "code": files.code, "topic": topic, "context": context, "sources": list(sources), "config": cfg.to_dict(),
             "created": datetime.now().isoformat(timespec="seconds"),
             "phase": "research" if cfg.research else "opening",
-            "memos": {}, "rounds": [], "rulings": [], "opinions": [], "closings": {}, "synthesis": None,
+            "memos": {}, "rounds": [], "facts": [], "opinions": [], "closings": {}, "synthesis": None,
             "stop_reason": "", "max_rounds": cfg.max_rounds,
         }
-        for text in rulings:
-            d.state["rulings"].append(f"(before the debate) {text}")
+        for text in facts:
+            d.state["facts"].append(f"(before the debate) {text}")
         for text in opinions:
             d.state["opinions"].append(f"(before the debate) {text}")
         d._save()
@@ -90,20 +92,20 @@ class Debate:
               f"Referee: {d.agents['referee'].label}.\n")
         if sources:
             d._tx("\nStarting sources: " + ", ".join(x["ref"] for x in sources) + "\n")
-        for r in d.state["rulings"]:
-            d._tx(f"\n> **Moderator ruling:** {r}\n")
+        for r in d.state["facts"]:
+            d._tx(f"\n> **Fact set by the human (binding):** {r}\n")
         for o in d.state["opinions"]:
             d._tx(f"\n> **Human opinion (not binding):** {o}\n")
         return d
 
     @classmethod
     def derive(cls, src: str | Path, cfg_overrides: dict, keep_rounds: int = 0, redo_openings: bool = False,
-               rulings: list[str] = (), opinions: list[str] = (), sources: list[dict] = (), **kw) -> "Debate":
+               facts: list[str] = (), opinions: list[str] = (), sources: list[dict] = (), **kw) -> "Debate":
         """A new run that inherits a finished run's research (and the first `keep_rounds` rounds) and
-        re-runs the rest, so the human can add an opinion or a ruling retrospectively. Adding sources
+        re-runs the rest, so the human can add an opinion or a fact retrospectively. Adding sources
         redoes the research too, since the briefings must start from them."""
         src_files = resolve(str(src), Path(Config().apply_overrides(cfg_overrides).out_dir))
-        old = json.loads(src_files.state.read_text())
+        old = load_state(src_files)
         cfg = Config().apply_overrides(old["config"]).apply_overrides(cfg_overrides)
         files = new_run(Path(cfg.out_dir), old["topic"])
         d = cls(files, cfg, **kw)
@@ -120,19 +122,19 @@ class Debate:
                             + ("" if redo_openings else f" and rounds 0-{keep_rounds}") + ")",
             "phase": "research" if sources else ("opening" if redo_openings else "rounds"),
             "memos": {} if sources else old["memos"], "rounds": kept, "closings": {}, "synthesis": None,
-            "rulings": list(old.get("rulings", [])), "opinions": list(old.get("opinions", [])),
+            "facts": list(old.get("facts", old.get("rulings", []))), "opinions": list(old.get("opinions", [])),
             "stop_reason": "", "max_rounds": cfg.max_rounds,
         }
         at = "before the debate" if redo_openings else f"after round {keep_rounds}"
-        for text in rulings:
-            d.state["rulings"].append(f"({at}, added retrospectively) {text}")
+        for text in facts:
+            d.state["facts"].append(f"({at}, added retrospectively) {text}")
         for text in opinions:
             d.state["opinions"].append(f"({at}, added retrospectively) {text}")
         d._save()
         d._tx(f"# {files.code} — Debate transcript: {old['topic']}\n\nStarted {d.state['created']}, "
               f"derived from {d.state['derived_from']}; see that run's transcript for the inherited part.\n")
-        for r in d.state["rulings"]:
-            d._tx(f"\n> **Moderator ruling:** {r}\n")
+        for r in d.state["facts"]:
+            d._tx(f"\n> **Fact set by the human (binding):** {r}\n")
         for o in d.state["opinions"]:
             d._tx(f"\n> **Human opinion (not binding):** {o}\n")
         return d
@@ -140,7 +142,7 @@ class Debate:
     @classmethod
     def resume(cls, ref: str | Path, **kw) -> "Debate":
         files = resolve(str(ref), Path(Config().out_dir))
-        state = json.loads(files.state.read_text())
+        state = load_state(files)
         cfg = Config().apply_overrides(state["config"])
         d = cls(files, cfg, **kw)
         d.state = state
@@ -202,7 +204,7 @@ class Debate:
                 turns[who] = self.agents[who].ask(
                     prompts.debater_system(who, topic),
                     prompts.turn_prompt(who, topic, ctx, memos, ledger, opp_turn, prev["turns"].get(who),
-                                        nudge, self.state["rulings"], r, self.state["max_rounds"],
+                                        nudge, self.state["facts"], r, self.state["max_rounds"],
                                         self.state.get("opinions", [])),
                     schemas.TURN, web=True, what=f"round {r}")
                 self._tx(f"\n## Round {r}: {prompts.DISPLAY[who]}\n\n{turns[who]['argument']}\n")
@@ -231,7 +233,7 @@ class Debate:
         s["synthesis"] = self.agents["referee"].ask(
             prompts.synthesis_system(s["topic"]),
             prompts.synthesis_prompt(s["topic"], s["context"], s["rounds"][-1]["ledger"], s["closings"], s["memos"],
-                                     s["rulings"], s.get("opinions", [])),
+                                     s["facts"], s.get("opinions", [])),
             schemas.SYNTHESIS, web=False, what="synthesis")
         self._advance("done")
 
@@ -240,7 +242,7 @@ class Debate:
     def _referee(self, ledger: dict | None, turns: dict, round_no: int, prev_ledger: dict | None) -> dict:
         new = self.agents["referee"].ask(
             prompts.referee_system(self.state["topic"]),
-            prompts.referee_prompt(self.state["topic"], ledger, turns, round_no, prev_ledger, self.state["rulings"],
+            prompts.referee_prompt(self.state["topic"], ledger, turns, round_no, prev_ledger, self.state["facts"],
                                    self.state.get("opinions", [])),
             schemas.LEDGER, web=False, what=f"referee round {round_no}")
         if ledger:
@@ -281,7 +283,7 @@ class Debate:
             reasons.append(policy)
         if (reasons and not self.cfg.unattended) or ledger["needs_human"]:
             q = f"Round {r}. " + "\n".join(reasons) + "\n\nRemaining disputes:\n" + _disputes_md(ledger)
-            reply = self.checkpoint(q, ["continue", "stop", "opinion: <text>", "<type a ruling>"])
+            reply = self.checkpoint(q, ["continue", "stop", "opinion: <text>", "fact: <text>"])
             if not self._handle_reply(reply, r):
                 return True
         return False
@@ -309,7 +311,7 @@ class Debate:
             return False
         reply = self.checkpoint(
             f"Round cap of {self.state['max_rounds']} reached with unresolved claims:\n" + _disputes_md(ledger),
-            ["stop", "extend <n>", "opinion: <text>", "<type a ruling and extend>"])
+            ["stop", "extend <n>", "opinion: <text>", "fact: <text>"])
         m = re.search(r"extend\s+(\d+)", reply)
         if m:
             self.state["max_rounds"] += int(m.group(1))
@@ -338,21 +340,21 @@ class Debate:
         return True
 
     def _record_input(self, reply: str, round_no: int):
-        """`opinion: ...` is a non-binding view; anything else is a binding ruling (a veto)."""
+        """`opinion: ...` is a non-binding view; `fact: ...` (or anything else) is binding."""
         m = re.match(r"(?i)\s*(?:opinion|o)\s*:\s*(.+)", reply, re.S)
         if m:
             self._add_opinion(m.group(1).strip(), round_no)
         else:
-            self._add_ruling(reply.strip(), round_no)
+            self._add_fact(re.sub(r"(?i)^\s*(?:fact|f)\s*:\s*", "", reply).strip(), round_no)
 
     def _add_opinion(self, text: str, round_no: int):
         self.state["opinions"].append(f"(after round {round_no}) {text}")
         self._tx(f"\n> **Human opinion after round {round_no} (not binding):** {text}\n")
         self._save()
 
-    def _add_ruling(self, text: str, round_no: int):
-        self.state["rulings"].append(f"(after round {round_no}) {text}")
-        self._tx(f"\n> **Moderator ruling after round {round_no}:** {text}\n")
+    def _add_fact(self, text: str, round_no: int):
+        self.state["facts"].append(f"(after round {round_no}) {text}")
+        self._tx(f"\n> **Fact set by the human after round {round_no} (binding):** {text}\n")
         self._save()
 
     def _stop(self, reason: str) -> bool:
@@ -385,6 +387,7 @@ class Debate:
         out = self.files.report
         out.write_text(render_report(self.state, self.agents))
         log.info("report written: %s", out)
+        log.info("review written: %s", write_review(self.files, self.state))
         return out
 
 
