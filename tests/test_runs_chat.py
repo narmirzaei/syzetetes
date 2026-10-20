@@ -71,10 +71,10 @@ def test_chat_refuses_without_report(tmp_path):
 def test_cli_parsers_build():
     from syzetetes.cli import _parser
     p = _parser()
-    a = p.parse_args(["rerun", "D0001", "--keep-rounds", "2", "--opinion", "x", "--pause", "disputes", "--out", "o"])
-    assert (a.run, a.keep_rounds, a.opinion, a.pause, a.out_dir) == ("D0001", 2, ["x"], "disputes", "o")
-    a = p.parse_args(["run", "t", "--fact", "r", "--pause-when", "disputed >= 1"])
-    assert a.fact == ["r"] and a.pause_when == "disputed >= 1"
+    a = p.parse_args(["rerun", "D0001", "--keep-rounds", "2", "--opinion", "x", "--pause-on", "disputes,round:2", "--out", "o"])
+    assert (a.run, a.keep_rounds, a.opinion, a.pause_on, a.out_dir) == ("D0001", 2, ["x"], "disputes,round:2", "o")
+    a = p.parse_args(["run", "t", "--fact", "r", "--unattended"])
+    assert a.fact == ["r"] and a.unattended is True
 
 
 def test_review_html_embeds_state(tmp_path):

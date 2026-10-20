@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from syzetetes.config import Config
 from syzetetes.engine import Debate
 from tests.test_engine import Fake, _run
@@ -34,16 +36,31 @@ def test_opinion_vs_fact_and_prompts(tmp_path):
     assert "Human's stated opinion" in rep and "Facts set by the human" in rep
 
 
-def test_pause_policies(tmp_path):
+def test_pause_on_triggers(tmp_path):
     script = {"ledger": lambda r: "disputed"}
-    for pause, when, expected in [("always", "", 4), ("disputes", "", 4), ("referee", "", 1),  # +1: round-cap prompt
-                                  ("referee", "disputed >= 1 and round >= 2", 3)]:
+    cases = [  # expected = pauses during rounds + 1 for the round-cap prompt (attended runs)
+        (["every_round"], 4), (["disputes"], 4), (["referee", "stall"], 1), (["agree_to_disagree"], 1),
+        (["round:2"], 2), (["custom:disputed >= 1 and round >= 2"], 3), (["round:1", "round:3"], 3),
+    ]
+    for i, (on, expected) in enumerate(cases):
         seen = []
-        d, _ = _run(tmp_path / (pause + when.replace(" ", "")), script,
-                    {"pause": pause, "pause_when": when, "max_rounds": 3, "stable_rounds": 9, "unattended": False},
+        d, _ = _run(tmp_path / str(i), script, {"pause_on": on, "max_rounds": 3, "stable_rounds": 9},
                     checkpoint=_cp(["continue"] * 10, seen))
-        assert len(seen) == expected, (pause, when, seen)
-    assert Config(pause="never").unattended is False  # only load_config normalises; engine respects cfg.unattended
+        assert len(seen) == expected, (on, seen)
+
+
+def test_pause_on_empty_is_unattended_and_stall_without_trigger_stops(tmp_path):
+    from syzetetes.config import load_config
+    assert load_config({"pause_on": []}).unattended is True
+    assert load_config({"unattended": True}).pause_on == []
+    assert load_config({"pause": "disputes", "pause_when": "round == 2"}).pause_on == \
+        ["referee", "stall", "disputes", "custom:round == 2"]          # legacy keys still work
+    with pytest.raises(SystemExit):
+        load_config({"pause_on": ["bogus"]})
+    seen = []
+    d, _ = _run(tmp_path / "s", {"ledger": lambda r: "disputed"},
+                {"pause_on": ["referee"], "max_rounds": 6, "stable_rounds": 1}, checkpoint=_cp(["continue"] * 9, seen))
+    assert d.state["stop_reason"].startswith("Ledger unchanged") and seen == []
 
 
 def test_rerun_inherits_and_adds(tmp_path):

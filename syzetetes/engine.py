@@ -65,6 +65,9 @@ class Debate:
         self.dir = files.dir
         self.code = files.code
         self.cfg = cfg
+        if cfg.unattended:
+            cfg.pause_on = []
+        cfg.unattended = not cfg.pause_on
         self.checkpoint = checkpoint or (unattended_checkpoint if cfg.unattended else console_checkpoint)
         self.state_path = files.state
         self.transcript = files.transcript
@@ -291,38 +294,46 @@ class Debate:
             else:
                 break
         stalled = stable > self.cfg.stable_rounds
-        if stalled and self.cfg.unattended:
+        on = self.cfg.pause_on
+        if stalled and "stall" not in on:
             return self._stop(f"Ledger unchanged for {stable} rounds.")
-        reasons = []
-        if ledger["needs_human"]:
-            reasons.append(f"The referee needs a decision:\n\n{ledger['human_question']}")
-        if stalled:
-            reasons.append(f"No claim has changed status for {stable} rounds.")
-        policy = self._pause_policy_reason(ledger, r, stable)
-        if policy:
-            reasons.append(policy)
-        if (reasons and not self.cfg.unattended) or ledger["needs_human"]:
+        if ledger["needs_human"] and "referee" not in on:
+            log.info("referee asked for a decision; pause_on has no 'referee', continuing: %s",
+                     ledger["human_question"][:200])
+        reasons = self._pause_reasons(ledger, r, stable, stalled)
+        if reasons:
             q = f"Round {r}. " + "\n".join(reasons) + "\n\nRemaining disputes:\n" + _disputes_md(ledger)
             reply = self.checkpoint(q, ["continue", "stop", "opinion: <text>", "fact: <text>"])
             if not self._handle_reply(reply, r):
                 return True
         return False
 
-    def _pause_policy_reason(self, ledger: dict, round_no: int, stable: int) -> str:
-        """Why the pause policy wants a checkpoint now, or '' if it does not."""
+    def _pause_reasons(self, ledger: dict, round_no: int, stable: int, stalled: bool) -> list[str]:
+        """Which of the configured pause_on situations hold after this round."""
         counts = _status_tally(ledger)
-        if self.cfg.pause == "always":
-            return "Pause policy: after every round."
-        if self.cfg.pause == "disputes" and counts["disputed"]:
-            return f"Pause policy: {counts['disputed']} claim(s) still disputed."
-        if self.cfg.pause_when:
-            names = {**counts, "round": round_no, "unchanged": stable - 1, "total": len(ledger["claims"])}
-            try:
-                if eval(self.cfg.pause_when, {"__builtins__": {}}, names):
-                    return f"Pause policy: `{self.cfg.pause_when}` is true ({names})."
-            except Exception as e:  # a bad expression must not kill a long run
-                log.warning("pause_when %r failed: %s", self.cfg.pause_when, e)
-        return ""
+        names = {**counts, "round": round_no, "unchanged": stable - 1, "total": len(ledger["claims"])}
+        out = []
+        for t in self.cfg.pause_on:
+            if t == "referee" and ledger["needs_human"]:
+                out.append(f"The referee needs a decision:\n\n{ledger['human_question']}")
+            elif t == "stall" and stalled:
+                out.append(f"No claim has changed status for {stable} rounds.")
+            elif t == "every_round":
+                out.append("You asked to be consulted after every round.")
+            elif t == "disputes" and counts["disputed"]:
+                out.append(f"{counts['disputed']} claim(s) still disputed.")
+            elif t == "agree_to_disagree" and counts["agree_to_disagree"]:
+                out.append(f"{counts['agree_to_disagree']} claim(s) marked agree-to-disagree.")
+            elif t.startswith("round:") and round_no == int(t[6:]):
+                out.append(f"You asked to be consulted after round {round_no}.")
+            elif t.startswith("custom:"):
+                expr = t[7:]
+                try:
+                    if eval(expr, {"__builtins__": {}}, names):
+                        out.append(f"Your condition `{expr}` is true ({names}).")
+                except Exception as e:  # a bad expression must not kill a long run
+                    log.warning("pause_on custom %r failed: %s", expr, e)
+        return out
 
     def _finish_or_extend(self, ledger: dict) -> bool:
         """At the round cap. Returns True to keep going (cap raised), False to finish."""

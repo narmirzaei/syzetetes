@@ -53,11 +53,11 @@ def test_load_spec_inputs(tmp_path):
     p = tmp_path / "s.toml"
     (tmp_path / "ctx.md").write_text("context here")
     p.write_text('topic = "T?"\nnote = "n"\ncontext_files = ["ctx.md"]\nsources = ["https://x", "ctx.md"]\n'
-                 'opinions = ["o"]\nfacts = ["f"]\n[models]\nclaude_model = "haiku"\n[debate]\npause = "always"\n')
+                 'opinions = ["o"]\nfacts = ["f"]\n[models]\nclaude_model = "haiku"\n[debate]\npause_on = ["every_round"]\n')
     s = sp.load_spec(p)
     i = sp.inputs(s, tmp_path)
     assert i["topic"] == "T?" and "context here" in i["context"] and i["sources"][1].endswith("ctx.md")
-    assert sp.config_overrides(s) == {"claude_model": "haiku", "pause": "always"}
+    assert sp.config_overrides(s) == {"claude_model": "haiku", "pause_on": ["every_round"]}
     p.write_text('topic = "T?"\nbogus = 1\n')
     with pytest.raises(SystemExit):
         sp.load_spec(p)
@@ -83,7 +83,7 @@ def test_wizard_fills_template(tmp_path):
         "sonnet", "bogus", "low",             # claude model, bad effort then ok
         "", "medium", "codex", "", "",        # codex model default, effort, referee, model, effort
         "3", "", "n",                         # rounds, stable, research
-        "disputes", "4", "2", "", "", "",     # pause, pause-when menu: 4 = at a round, round 2; out_dir, timeout, retries
+        "3,6", "2", "", "", "",               # pause menu: disputes + once after round 2; out_dir, timeout, retries
     ])
     said = []
     v = sp.wizard(ask=lambda _: next(answers), say=said.append)
@@ -93,7 +93,7 @@ def test_wizard_fills_template(tmp_path):
     assert d["models"]["claude_model"] == "sonnet" and d["models"]["claude_effort"] == "low"
     assert d["models"]["codex_effort"] == "medium" and d["models"]["referee"] == "codex"
     assert d["debate"]["max_rounds"] == 3 and d["debate"]["research"] is False
-    assert d["debate"]["pause"] == "disputes" and d["debate"]["pause_when"] == "round == 2"
+    assert d["debate"]["pause_on"] == ["disputes", "round:2"]
     assert "rerun" not in d
     assert any("choose one of" in m for m in said)
     p = tmp_path / "w.toml"; p.write_text(text)
@@ -102,8 +102,17 @@ def test_wizard_fills_template(tmp_path):
 
 def test_wizard_rerun_branch():
     answers = iter(["y", "D0001", "2", "n", "", "", "", "", "a fact", "",
-                    "", "", "", "", "", "", "", "", "", "y", "", "", "", "", "", ""])
+                    "", "", "", "", "", "", "", "", "", "y", "", "", "", ""])
     v = sp.wizard(ask=lambda _: next(answers), say=lambda *_: None)
     d = tomllib.loads(sp.template(v))
     assert d["rerun"] == {"from": "D0001", "keep_rounds": 2, "redo_openings": False} and d["facts"] == ["a fact"]
     assert d["topic"] == ""
+
+
+def test_wizard_pause_menu_zero_means_never_and_rejects_bad(tmp_path):
+    said = []
+    answers = iter(["9", "0"])
+    out = sp.pause_menu(lambda label, default="", **k: next(answers), said.append, ["referee", "stall"])
+    assert out == [] and any("use numbers" in m for m in said)
+    answers = iter(["7", "open >= 1"])
+    assert sp.pause_menu(lambda label, default="", **k: next(answers), said.append, []) == ["custom:open >= 1"]

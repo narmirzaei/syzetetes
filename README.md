@@ -25,8 +25,7 @@ See [example-report.md](example-report.md) for a finished report and [examples/]
   - [Give it your context and sources](#give-it-your-context-and-sources)
   - [Tell it what you think](#tell-it-what-you-think)
   - [Establish a fact it must not argue with](#establish-a-fact-it-must-not-argue-with)
-  - [Moderate it yourself as it runs](#moderate-it-yourself-as-it-runs)
-  - [Pause only when something specific happens](#pause-only-when-something-specific-happens)
+  - [Decide when it stops and asks you](#decide-when-it-stops-and-asks-you)
   - [Replay a finished debate with hindsight](#replay-a-finished-debate-with-hindsight)
   - [Let Codex referee](#let-codex-referee)
   - [Review how the synthesis was reached](#review-how-the-synthesis-was-reached)
@@ -95,8 +94,8 @@ syzetetes run "Is remote work net positive for early-stage startups?"
    repetition, and nudges a side that is restating itself.
 4. **Termination.** The debate ends when every claim is settled, when both sides say they have nothing new,
    when the ledger has not moved for `stable_rounds` rounds, or at the round cap.
-5. **Human checkpoints.** The run pauses and asks you when the referee hits something the models cannot
-   resolve alone, or whenever your pause policy says so. You can let it continue, stop it, give an
+5. **Human checkpoints.** The run stops and asks you in the situations you chose (by default: when the
+   referee cannot resolve something, or the ledger stalls). You can let it continue, stop it, give an
    opinion, or establish a fact.
 6. **Closing and synthesis.** Each side writes a closing statement. The referee model writes the executive
    summary, per-claim verdicts, the strongest case for and against, and guidance for you.
@@ -140,8 +139,7 @@ referee_effort = "medium"
 max_rounds = 8
 stable_rounds = 2            # stop after this many rounds with no status change
 research = true
-pause = "referee"            # never | referee | disputes | always
-pause_when = ""              # e.g. "disputed >= 2 and round >= 2"
+pause_on = ["referee", "stall"]   # when to stop and ask you; [] = never (see below)
 out_dir = "debates"
 timeout_s = 1800
 retries = 3
@@ -176,12 +174,12 @@ referee_effort = "low"
 [debate]
 max_rounds = 1
 research = false
-pause = "never"
+pause_on = []
 ```
 
 ```
 syzetetes run "Tabs or spaces for Python?" --claude-model haiku --claude-effort low --codex-effort low \
-  --referee-model haiku --referee-effort low --max-rounds 1 --no-research --pause never
+  --referee-model haiku --referee-effort low --max-rounds 1 --no-research --unattended
 ```
 
 ### Give it your context and sources
@@ -241,16 +239,34 @@ syzetetes run "..." --fact "Assume the product is a developer tool with an API; 
 Opinions and facts can be given at three moments: before the debate (as above), at a pause in the middle
 (next recipe), or retrospectively at any round of a finished debate (replay recipe).
 
-### Moderate it yourself as it runs
+### Decide when it stops and asks you
 
-Choose when the debate pauses for you. [examples/hands-on-moderation.toml](examples/hands-on-moderation.toml)
+`pause_on` is a list of situations, checked after every round. Any that holds stops the run and asks you.
+[examples/hands-on-moderation.toml](examples/hands-on-moderation.toml)
 
-| `pause =` | pauses |
+| situation | meaning |
 |---|---|
-| `"referee"` (default) | when the referee asks for a decision, or the ledger has not moved for `stable_rounds` rounds |
-| `"disputes"` | after every round that still has a disputed claim: you tie-break every disagreement |
-| `"always"` | after every round |
-| `"never"` | never (same as `--unattended`); deadlocks become agree-to-disagree |
+| `"referee"` | the referee cannot resolve something on its own (conflicting sources, a value judgement, scope) |
+| `"stall"` | nothing changed for `stable_rounds` rounds. Without this, a stall simply ends the debate |
+| `"disputes"` | after every round that still has a disputed claim: you tie-break each one |
+| `"agree_to_disagree"` | a side wants to agree to disagree on a claim: weigh in before it is dropped |
+| `"every_round"` | after every round |
+| `"round:3"` | once, after round 3 |
+| `"custom:EXPR"` | your own condition over `round`, `disputed`, `open`, `agreed`, `conceded`, `agree_to_disagree`, `total`, `unchanged` |
+
+The default is `["referee", "stall"]`. An empty list never asks (`--unattended`); deadlocks become
+agree-to-disagree. `syzetetes init -i` presents the same list as a multiple-choice question.
+
+```toml
+[debate]
+pause_on = ["referee", "stall", "disputes"]                 # moderate every disagreement
+pause_on = ["referee", "agree_to_disagree", "round:3"]      # only when it gets interesting
+pause_on = ["referee", "custom:disputed >= 2 and round >= 2"]
+```
+
+```
+syzetetes run "Is remote work net positive for early-stage startups?" --pause-on referee,stall,disputes
+```
 
 At a checkpoint you see the open disputes and type one of:
 
@@ -260,29 +276,6 @@ stop                     end the debate now; closings and synthesis still run
 extend 2                 at the round cap: allow two more rounds
 opinion: <your view>     recorded as your opinion; the debate continues with it
 fact: <statement>        recorded as a binding fact; the debate continues with it
-```
-
-```
-syzetetes run "Is remote work net positive for early-stage startups?" --pause disputes
-```
-
-### Pause only when something specific happens
-
-`pause_when` is an expression over the ledger, checked after every round in addition to `pause`:
-
-```toml
-[debate]
-pause = "referee"
-pause_when = "disputed >= 2 and round >= 2"
-```
-
-Names available: `round`, `disputed`, `open`, `agreed`, `conceded`, `agree_to_disagree`, `total`, and
-`unchanged` (rounds in a row with no status change). Examples:
-
-```
-pause_when = "agree_to_disagree >= 1"          # someone wants to give up on a claim: let me weigh in first
-pause_when = "unchanged >= 1 and disputed > 0" # it is starting to stall
-pause_when = "round == 3"                      # check in once, mid-debate
 ```
 
 ### Replay a finished debate with hindsight
@@ -298,11 +291,11 @@ opinions = ["I think both of you are too quick to call the pension problem 'fixa
 from = "D0001"
 keep_rounds = 2          # inherit openings and rounds 1-2; inject after round 2; replay from round 3
 [debate]
-pause = "disputes"       # and moderate the replay yourself
+pause_on = ["referee", "stall", "disputes"]   # and moderate the replay yourself
 ```
 
 ```
-syzetetes rerun D0001 --keep-rounds 2 --fact "Korea's 2024 TFR was 0.75." --pause disputes
+syzetetes rerun D0001 --keep-rounds 2 --fact "Korea's 2024 TFR was 0.75." --pause-on referee,stall,disputes
 syzetetes rerun D0001 --opinion "..."                     # inject after the openings, replay all rounds
 syzetetes rerun D0001 --redo-openings --opinion "..."     # inject before the openings; keep only research
 syzetetes rerun D0001 --source https://new-paper.org      # new sources: research is redone too
@@ -414,7 +407,7 @@ claude_model = "opus"
 codex_model = "gpt-6.1-sol"
 referee = "claude"
 max_rounds = 6
-pause = "disputes"
+pause_on = ["referee", "stall", "disputes"]
 out_dir = "~/debates"
 ```
 

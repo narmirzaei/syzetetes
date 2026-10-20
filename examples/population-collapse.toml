@@ -13,4 +13,4 @@ referee_effort = "medium"
 
 [debate]
 max_rounds = 4
-pause = "never"
+pause_on = []

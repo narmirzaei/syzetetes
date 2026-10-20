@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,16 +37,17 @@ class Config:
     max_rounds: int = 8
     stable_rounds: int = 2               # stop when the ledger has not changed status for this many rounds
     research: bool = True
-    unattended: bool = False             # alias for pause = "never"
-    # When to pause and ask the human (in addition to the referee asking):
-    #   never    - run through; deadlocks become agree-to-disagree
-    #   referee  - only when the referee asks or the ledger stalls (default)
-    #   disputes - after every round that still has a disputed claim
-    #   always   - after every round
-    pause: str = "referee"
-    # Optional expression over round, disputed, open, agreed, conceded, agree_to_disagree, total,
-    # unchanged (rounds without a status change). Pauses when true, e.g. "disputed >= 2 and round >= 2".
-    pause_when: str = ""
+    unattended: bool = False             # alias for pause_on = []
+    # Situations in which the debate stops and asks the human (checked after every round):
+    #   referee            the referee cannot resolve something on its own
+    #   stall              no claim changed status for `stable_rounds` rounds (without this, a stall ends the debate)
+    #   every_round        after every round
+    #   disputes           after every round that still has a disputed claim
+    #   agree_to_disagree  a side wants to agree to disagree on a claim
+    #   round:N            once, after round N
+    #   custom:EXPR        EXPR over round, disputed, open, agreed, conceded, agree_to_disagree, total, unchanged
+    # Empty list: never ask; run through unattended.
+    pause_on: list[str] = field(default_factory=lambda: ["referee", "stall"])
 
     # Runtime
     timeout_s: int = 1800                # per CLI call
@@ -53,7 +55,7 @@ class Config:
     out_dir: str = "debates"
 
     def apply_overrides(self, overrides: dict) -> "Config":
-        for k, v in overrides.items():
+        for k, v in legacy_pause(overrides).items():
             if v is not None and hasattr(self, k):
                 setattr(self, k, v)
         return self
@@ -70,12 +72,36 @@ def load_config(overrides: dict | None = None) -> Config:
     if overrides:
         cfg.apply_overrides(overrides)
     cfg.out_dir = str(Path(cfg.out_dir).expanduser())
+    if isinstance(cfg.pause_on, str):
+        cfg.pause_on = [x.strip() for x in cfg.pause_on.split(",") if x.strip()]
     if cfg.unattended:
-        cfg.pause = "never"
-    if cfg.pause == "never":
-        cfg.unattended = True
-    if cfg.pause not in ("never", "referee", "disputes", "always"):
-        raise SystemExit(f"pause must be never|referee|disputes|always, got {cfg.pause!r}")
+        cfg.pause_on = []
+    cfg.unattended = not cfg.pause_on
+    bad = [t for t in cfg.pause_on if not valid_trigger(t)]
+    if bad:
+        raise SystemExit(f"pause_on: unknown trigger(s) {bad}; expected one of {', '.join(TRIGGERS)}, round:N, custom:EXPR")
     if cfg.referee not in ("claude", "codex"):
         raise ValueError("referee must be 'claude' or 'codex'")
     return cfg
+
+
+TRIGGERS = ("referee", "stall", "every_round", "disputes", "agree_to_disagree")
+LEGACY_PAUSE = {"never": [], "referee": ["referee", "stall"], "disputes": ["referee", "stall", "disputes"],
+                "always": ["referee", "stall", "every_round"]}
+
+
+def valid_trigger(t: str) -> bool:
+    return t in TRIGGERS or bool(re.fullmatch(r"round:\d+", t)) or t.startswith("custom:")
+
+
+def legacy_pause(overrides: dict) -> dict:
+    """Older specs and state files used `pause` (a preset) and `pause_when` (an expression)."""
+    if "pause" not in overrides and "pause_when" not in overrides:
+        return overrides
+    o = dict(overrides)
+    on = list(o.get("pause_on") or LEGACY_PAUSE.get(o.pop("pause", "referee"), ["referee", "stall"]))
+    when = o.pop("pause_when", "")
+    if when:
+        on.append(f"custom:{when}")
+    o["pause_on"] = on
+    return o

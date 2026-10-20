@@ -4,7 +4,7 @@ topic = "Is remote work net positive for early-stage startups?"
 
 [debate]
 max_rounds = 8
-pause = "disputes"
-# Or pause only when it gets interesting:
-# pause = "referee"
-# pause_when = "disputed >= 2 and round >= 2"
+pause_on = ["referee", "stall", "disputes"]
+# Or only when it gets interesting:
+# pause_on = ["referee", "agree_to_disagree", "round:3"]
+# pause_on = ["referee", "custom:disputed >= 2 and round >= 2"]

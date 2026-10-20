@@ -20,7 +20,8 @@ DEFAULT_NAME = "syzetetes.toml"
 INPUT_KEYS = ("topic", "note", "context_files", "sources", "opinions", "facts")
 SECTIONS = ("models", "debate", "rerun")
 MODEL_KEYS = ("claude_model", "claude_effort", "codex_model", "codex_effort", "referee", "referee_model", "referee_effort")
-DEBATE_KEYS = ("max_rounds", "stable_rounds", "research", "pause", "pause_when", "out_dir", "timeout_s", "retries")
+DEBATE_KEYS = ("max_rounds", "stable_rounds", "research", "pause_on", "out_dir", "timeout_s", "retries")
+LEGACY_DEBATE_KEYS = ("pause", "pause_when")
 RERUN_KEYS = ("from", "keep_rounds", "redo_openings")
 
 
@@ -69,13 +70,14 @@ referee_effort = {j(c["referee_effort"])}
 max_rounds = {int(c["max_rounds"])}
 stable_rounds = {int(c["stable_rounds"])}                # stop after this many rounds with no status change
 research = {j(bool(c["research"]))}                  # false: skip the web-research phase
-pause = {j(c["pause"])}               # never | referee | disputes | always
-                                 #   never    run through; deadlocks become agree-to-disagree
-                                 #   referee  only when the referee asks or the ledger stalls
-                                 #   disputes after every round that still has a disputed claim
-                                 #   always   after every round
-pause_when = {j(c["pause_when"])}                  # extra condition, e.g. "disputed >= 2 and round >= 2"
-                                 # names: round, disputed, open, agreed, conceded, agree_to_disagree, total, unchanged
+pause_on = {lst(c["pause_on"])}   # when to stop and ask you (checked after every round); [] = never ask
+                                 #   "referee"            the referee cannot resolve something on its own
+                                 #   "stall"              nothing changed for stable_rounds rounds (otherwise a stall ends the debate)
+                                 #   "every_round"        after every round
+                                 #   "disputes"           after every round that still has a disputed claim
+                                 #   "agree_to_disagree"  a side wants to agree to disagree on a claim
+                                 #   "round:3"            once, after round 3
+                                 #   "custom:disputed >= 2 and round >= 2"   your own condition over the ledger counts
 out_dir = {j(c["out_dir"])}              # where run folders go
 timeout_s = {int(c["timeout_s"])}                 # seconds per model call
 retries = {int(c["retries"])}
@@ -86,40 +88,47 @@ retries = {int(c["retries"])}
 {rerun}'''
 
 
-PAUSE_HELP = {"never": "run through; deadlocks become agree-to-disagree",
-              "referee": "only when the referee asks or the ledger stalls (default)",
-              "disputes": "after every round that still has a disputed claim: you tie-break each one",
-              "always": "after every round"}
-
-
-PAUSE_WHEN_PRESETS = [
-    ("no",      "No extra situations",                                              ""),
-    ("atd",     "A side wants to agree to disagree on a claim (let me weigh in first)", "agree_to_disagree >= 1"),
-    ("stall",   "The debate is starting to stall (a round passed with no change)",  "unchanged >= 1 and disputed > 0"),
-    ("round",   "Once, at a specific round",                                        "round == {n}"),
-    ("many",    "Several claims are still disputed late in the debate",            "disputed >= {n} and round >= 2"),
-    ("custom",  "Something else (I will type the condition myself)",               None),
+PAUSE_MENU = [
+    ("referee",           "The referee cannot resolve something on its own (recommended)"),
+    ("stall",             "Nothing has changed for a while (otherwise a stall ends the debate)"),
+    ("disputes",          "After every round that still has a disputed claim: I tie-break each one"),
+    ("agree_to_disagree", "A side wants to agree to disagree on a claim: let me weigh in first"),
+    ("every_round",       "After every round"),
+    ("round:",            "Once, after a specific round"),
+    ("custom:",           "A condition of my own over the ledger counts"),
 ]
 
 
-def pause_when_menu(one, say, current: str) -> str:
-    """Ask for the extra pause situation in plain words; return the expression the engine evaluates."""
-    say("Besides that, is there a specific situation where it should stop and ask you?")
-    for i, (_, label, _) in enumerate(PAUSE_WHEN_PRESETS, 1):
+def pause_menu(one, say, current: list[str]) -> list[str]:
+    """One multi-select question; returns the pause_on list."""
+    say("When should the debate stop and ask you? Pick any, comma-separated (e.g. 1,4). 0 = never ask.")
+    for i, (_, label) in enumerate(PAUSE_MENU, 1):
         say(f"  {i}. {label}")
-    default = "1" if not current else str(len(PAUSE_WHEN_PRESETS))
-    pick = one("Choose a number", default, choices=[str(i) for i in range(1, len(PAUSE_WHEN_PRESETS) + 1)])
-    key, _, expr = PAUSE_WHEN_PRESETS[int(pick) - 1]
-    if key == "round":
-        return expr.format(n=one("Which round", 3, cast=int))
-    if key == "many":
-        return expr.format(n=one("How many disputed claims", 2, cast=int))
-    if key == "custom":
-        say("  A condition over these counts after each round: round, disputed, open, agreed, conceded,")
-        say("  agree_to_disagree, total, unchanged (rounds in a row with no change). It pauses when true.")
-        say('  Example: "disputed >= 2 and round >= 2"')
-        return one("Condition", current)
-    return expr
+    default = ",".join(str(i) for i, (k, _) in enumerate(PAUSE_MENU, 1)
+                       if k in current or any(c.startswith(k) for c in current if k.endswith(":"))) or "0"
+    valid = {str(i) for i in range(len(PAUSE_MENU) + 1)}
+    while True:
+        raw = one("Numbers", default)
+        picks = [x.strip() for x in str(raw).split(",") if x.strip()]
+        if picks and all(x in valid for x in picks):
+            break
+        say(f"  use numbers 0-{len(PAUSE_MENU)}, separated by commas")
+    if "0" in picks:
+        return []
+    out = []
+    for x in picks:
+        key = PAUSE_MENU[int(x) - 1][0]
+        if key == "round:":
+            out.append(f"round:{one('  After which round', 3, cast=int)}")
+        elif key == "custom:":
+            say("  Counts available after each round: round, disputed, open, agreed, conceded,")
+            say("  agree_to_disagree, total, unchanged (rounds in a row with no change). Pauses when true.")
+            say('  Example: disputed >= 2 and round >= 2')
+            prev = next((c[7:] for c in current if c.startswith("custom:")), "")
+            out.append("custom:" + one("  Condition", prev))
+        else:
+            out.append(key)
+    return out
 
 
 def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
@@ -181,11 +190,7 @@ def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
     v["max_rounds"] = one("Max rounds", d["max_rounds"], cast=int)
     v["stable_rounds"] = one("Stop after this many rounds with no status change", d["stable_rounds"], cast=int)
     v["research"] = yes("Web research phase?", d["research"])
-    say("When should it pause and ask you?")
-    for k, h in PAUSE_HELP.items():
-        say(f"  {k:<9}{h}")
-    v["pause"] = one("Pause", d["pause"], choices=list(PAUSE_HELP))
-    v["pause_when"] = pause_when_menu(one, say, d["pause_when"])
+    v["pause_on"] = pause_menu(one, say, list(d["pause_on"]))
     v["out_dir"] = one("Output directory", d["out_dir"])
     v["timeout_s"] = one("Seconds per model call", d["timeout_s"], cast=int)
     v["retries"] = one("Retries per call", d["retries"], cast=int)
@@ -197,7 +202,7 @@ def load_spec(path: Path) -> dict:
         spec = tomllib.load(f)
     unknown = [k for k in spec if k not in INPUT_KEYS and k not in SECTIONS]
     for sec, keys in (("models", MODEL_KEYS), ("debate", DEBATE_KEYS), ("rerun", RERUN_KEYS)):
-        unknown += [f"{sec}.{k}" for k in spec.get(sec, {}) if k not in keys]
+        unknown += [f"{sec}.{k}" for k in spec.get(sec, {}) if k not in keys and k not in LEGACY_DEBATE_KEYS]
     if unknown:
         raise SystemExit(f"{path}: unknown key(s): {', '.join(unknown)}")
     if "rerun" not in spec and not spec.get("topic", "").strip():
@@ -227,7 +232,8 @@ def inputs(spec: dict, base: Path) -> dict:
 
 def effective_spec(state: dict) -> str:
     """Render a run's state back into a spec file that reproduces it."""
-    cfg = {**Config().to_dict(), **state["config"]}          # older runs lack newer keys
+    from .config import legacy_pause
+    cfg = {**Config().to_dict(), **legacy_pause(state["config"])}   # older runs lack newer keys
     strip = lambda xs: [x.split(") ", 1)[1] if x.startswith("(") and ") " in x else x for x in xs]
 
     def kv(k, v):

@@ -15,4 +15,4 @@ codex_effort = "medium"
 
 [debate]
 max_rounds = 5
-pause = "referee"
+pause_on = ["referee", "stall"]

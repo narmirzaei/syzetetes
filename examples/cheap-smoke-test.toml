@@ -11,4 +11,4 @@ referee_effort = "low"
 [debate]
 max_rounds = 1
 research = false
-pause = "never"
+pause_on = []

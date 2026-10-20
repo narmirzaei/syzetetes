@@ -93,13 +93,10 @@ def _model_opts(p: argparse.ArgumentParser):
     d.add_argument("--max-rounds", type=int)
     d.add_argument("--stable-rounds", type=int, help="stop after this many rounds with no ledger change")
     d.add_argument("--no-research", dest="research", action="store_false", default=None)
-    d.add_argument("--pause", choices=["never", "referee", "disputes", "always"],
-                   help="when to stop and ask you: never | referee (default: referee asks or stall) | "
-                        "disputes (every round with a disputed claim) | always (every round)")
-    d.add_argument("--pause-when", metavar="EXPR",
-                   help='also pause when EXPR is true, over round, disputed, open, agreed, conceded, '
-                        'agree_to_disagree, total, unchanged; e.g. "disputed >= 2 and round >= 2"')
-    d.add_argument("--unattended", action="store_true", default=None, help="same as --pause never")
+    d.add_argument("--pause-on", metavar="LIST",
+                   help="comma-separated situations in which to stop and ask you: referee, stall, every_round, "
+                        "disputes, agree_to_disagree, round:N, custom:EXPR (default: referee,stall; empty = never)")
+    d.add_argument("--unattended", action="store_true", default=None, help="never ask; same as --pause-on ''")
     d.add_argument("--out", dest="out_dir", help="directory for run folders (default: ./debates)")
     d.add_argument("--timeout", dest="timeout_s", type=int, help="seconds per model call")
 
@@ -249,9 +246,9 @@ def _main(argv: list[str] | None) -> int:
 
 
 def _drive(d: Debate) -> int:
-    log.info("Claude: %s | Codex: %s | Referee: %s | pause: %s%s",
+    log.info("Claude: %s | Codex: %s | Referee: %s | pause on: %s",
              d.agents["claude"].label, d.agents["codex"].label, d.agents["referee"].label,
-             d.cfg.pause, f" or when {d.cfg.pause_when!r}" if d.cfg.pause_when else "")
+             ", ".join(d.cfg.pause_on) or "nothing (unattended)")
     progress.start()
     try:
         report = d.run()

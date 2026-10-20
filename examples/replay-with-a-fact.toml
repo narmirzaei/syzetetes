@@ -8,4 +8,4 @@ from = "D0001"
 keep_rounds = 2
 
 [debate]
-pause = "disputes"      # and this time, let me tie-break the rest
+pause_on = ["referee", "stall", "disputes"]   # and this time, let me tie-break the rest
