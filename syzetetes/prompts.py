@@ -226,9 +226,10 @@ Topic: {topic}
 
 ## Instructions
 Both debaters had live web search during research and every round; the briefings and transcript sources are
-what they found. Write the executive summary; one verdict entry per ledger claim (same IDs, every claim); the strongest
-case for and against the topic's central proposition as actually argued; concrete guidance for the
-author; and caveats about the evidence base."""
+what they found. Write the verdict first: the result of this debate in plain words, answering the question as the
+evidence left it, after reading both closing statements. Then the executive summary; one verdict entry per ledger
+claim (same IDs, every claim); the strongest case for and against the topic's central proposition as actually
+argued; concrete guidance for the author; and caveats about the evidence base."""
 
 
 # ---------------------------------------------------------------- helpers

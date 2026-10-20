@@ -265,6 +265,8 @@ class Debate:
             prompts.synthesis_prompt(s["topic"], s["context"], s["rounds"][-1]["ledger"], s["closings"], s["memos"],
                                      s["facts"], s.get("opinions", [])),
             schemas.SYNTHESIS, web=False, what="synthesis")
+        if s["synthesis"].get("verdict"):
+            self._tx(f"\n## The referee's verdict\n\n{s['synthesis']['verdict']}\n")
         self._advance("done")
 
     # ------------------------------------------------------------ referee & termination

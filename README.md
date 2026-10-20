@@ -22,8 +22,19 @@ moved; and afterwards ask questions that are answered only from what the debate 
 
 See [example-report.md](example-report.md) for a finished report and [examples/](examples/) for ready-made specs.
 
+## The players
+
+| player | who | role |
+|---|---|---|
+| **Debater: Claude** | Claude, through the Claude Code CLI on your subscription | Researches the question, states falsifiable claims with sources, and answers Codex's claims one by one every round: accept, maintain with a new argument, revise, or agree to disagree. |
+| **Debater: Codex** | Codex (OpenAI), through the Codex CLI on your ChatGPT subscription | The same, from different training. The two debaters get identical prompts; only the name differs. |
+| **Referee** | An LLM, Claude by default (Sonnet), or Codex | Never argues. Keeps the claim ledger: assigns IDs, sets each claim's status from what was actually said, names the crux of each dispute, flags repetition, asks for your decision when the debaters cannot progress. Writes the closing synthesis and the verdict. |
+| **Judge** | Jev, TypeSafe AI's decision model (optional, needs an API key) | Never writes a word. After every round, rules independently on every claim with a calibrated confidence: status, who moved, repetition, kind of crux, whose case is stronger, whether you are needed. Where it confidently disagrees with the referee, the debaters and the referee must answer it next round. |
+| **You** | The human | Set the question and the starting point; optionally seed opinions (not binding) and facts (binding); decide when the run pauses for you; rule at pauses; replay with hindsight; interrogate the result afterwards. |
+
 ## Contents
 
+- [The players](#the-players)
 - [Why two models and a decision model](#why-two-models-and-a-decision-model)
 - [Install](#install)
 - [Five-minute tour](#five-minute-tour)
@@ -120,12 +131,13 @@ syzetetes run "Is remote work net positive for early-stage startups?"
 5. **Human checkpoints.** The run stops and asks you in the situations you chose (by default: when the
    referee cannot resolve something, or the ledger stalls; optionally when the judge overrules the
    referee). You can let it continue, stop it, give an opinion, or establish a fact.
-6. **Closing and synthesis.** Each side writes a closing statement. The referee writes the executive
-   summary, per-claim verdicts, the strongest case for and against, and guidance for you, with the
-   judge's final rulings in front of it.
-7. **Report and review.** A Markdown report with every argument, the agreed / conceded / disputed /
-   agree-to-disagree points, closing statements, briefings, the full transcript and a numbered reference
-   list; and an interactive HTML review of how the ledger moved.
+6. **Closing and synthesis.** Each side writes a closing statement. The referee then writes its
+   verdict, the result of the debate in plain words, plus the executive summary, per-claim verdicts, the
+   strongest case for and against, and guidance for you, with the judge's final rulings in front of it.
+7. **Report and review.** A Markdown report with the executive summary, the agreed / conceded / disputed /
+   agree-to-disagree points, both closing statements followed by the referee's verdict, briefings, the full
+   transcript and a numbered reference list; and an interactive HTML review of how the ledger moved. The
+   verdict is also printed in the terminal when the run ends.
 
 While it runs, the terminal shows a live status line (phase, round, who is thinking and for how long)
 and a coloured ledger bar after every referee pass; the transcript file in the run folder is appended

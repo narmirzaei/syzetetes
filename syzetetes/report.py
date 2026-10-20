@@ -196,6 +196,8 @@ def render_report(state: dict, agents: dict | None = None) -> str:
                 out.append("Changed my mind on:\n" + "\n".join(f"- {c(x)}" for x in cl["changed_my_mind_on"]) + "\n")
             if cl["still_unconvinced_on"]:
                 out.append("Still unconvinced on:\n" + "\n".join(f"- {c(x)}" for x in cl["still_unconvinced_on"]) + "\n")
+        if syn.get("verdict"):
+            out.append("## The referee's verdict\n\n" + c(syn["verdict"]) + "\n")
 
     if state.get("memos"):
         out.append("## Research briefings\n")

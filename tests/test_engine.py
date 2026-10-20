@@ -58,7 +58,7 @@ class Fake(Agent):
         if schema is schemas.CLOSING:
             return {"statement": f"{self.name} closes.", "changed_my_mind_on": ["a"], "still_unconvinced_on": []}
         if schema is schemas.SYNTHESIS:
-            return {"executive_summary": "Summary. https://example.org/paper",
+            return {"verdict": "The verdict.", "executive_summary": "Summary. https://example.org/paper",
                     "verdicts": [{"claim_id": "K1", "headline": "H1", "explanation": "X1"},
                                  {"claim_id": "K2", "headline": "H2", "explanation": "X2"}],
                     "strongest_case_for": "for", "strongest_case_against": "against",
@@ -76,6 +76,7 @@ def _run(tmp_path, script, cfg_kw=None, checkpoint=None):
 
 def test_settles_and_reports(tmp_path):
     d, report = _run(tmp_path, {"ledger": lambda r: "disputed" if r < 2 else "conceded"})
+    assert "## The referee's verdict\n\nThe verdict." in d.files.report.read_text()
     s = d.state
     assert s["phase"] == "done" and s["stop_reason"] == "All claims settled."
     assert [r["round"] for r in s["rounds"]] == [0, 1, 2]

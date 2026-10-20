@@ -263,6 +263,9 @@ def _drive(d: Debate) -> int:
         return 130
     finally:
         progress.stop()
+    verdict = (d.state.get("synthesis") or {}).get("verdict")
+    if verdict:
+        print(f"\nThe referee's verdict:\n{verdict}")
     if d.judge is not None and getattr(d.judge, "calls", 0):
         print(f"\nJev: {d.judge.calls} calls, {d.judge.input_tokens:,} input tokens "
               f"(≈ ${d.judge.input_tokens / 1e6 * 0.042:.3f})")

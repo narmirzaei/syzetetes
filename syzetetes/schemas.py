@@ -86,6 +86,9 @@ LEDGER = _obj({
 })
 
 SYNTHESIS = _obj({
+    "verdict": {"type": "string", "description": "The result of the debate in plain words, 80-150 words: the one-sentence "
+                "answer to the question as the evidence left it, what was established, what remains genuinely open, "
+                "and who conceded what. No hedging beyond what the ledger supports."},
     "executive_summary": {"type": "string", "description": "Markdown, 200-400 words, for a reader who will not read the transcript."},
     "verdicts": {"type": "array", "items": _obj({
         "claim_id": {"type": "string"},
