@@ -25,7 +25,7 @@ def _parser() -> argparse.ArgumentParser:
     _model_opts(run)
 
     rr = sub.add_parser("rerun", help="re-run a finished debate from a chosen round with your opinion or ruling added")
-    _run_ref(rr)
+    rr.add_argument("run", help="run code (D0001) or path to the run folder")
     rr.add_argument("--keep-rounds", type=int, default=0, metavar="N",
                     help="inherit rounds 0..N (0 = keep only the opening positions; default 0)")
     rr.add_argument("--redo-openings", action="store_true", help="inherit only the research; redo openings too")

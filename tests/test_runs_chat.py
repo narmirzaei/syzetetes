@@ -66,3 +66,12 @@ def test_chat_agent_is_smallest_model_no_thinking():
 def test_chat_refuses_without_report(tmp_path):
     with pytest.raises(FileNotFoundError):
         Chat(new_run(tmp_path, "x"), _GroundedFake())
+
+
+def test_cli_parsers_build():
+    from debate.cli import _parser
+    p = _parser()
+    a = p.parse_args(["rerun", "D0001", "--keep-rounds", "2", "--opinion", "x", "--pause", "disputes", "--out", "o"])
+    assert (a.run, a.keep_rounds, a.opinion, a.pause, a.out_dir) == ("D0001", 2, ["x"], "disputes", "o")
+    a = p.parse_args(["run", "t", "--ruling", "r", "--pause-when", "disputed >= 1"])
+    assert a.ruling == ["r"] and a.pause_when == "disputed >= 1"
