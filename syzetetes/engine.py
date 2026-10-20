@@ -322,9 +322,12 @@ class Debate:
             requests = {who: next((q for q in turns.get(who, {}).get("evidence_requests", []) if q["claim_id"] == c["id"]), None)
                         for who in ("claude", "codex")}
             states[c["id"]] = judging.claim_state(topic, c, round_no, responses, requests, new_by.get(c["id"]), facts, opinions)
+            seen = {x.get("url") for x in (c.get("sources") or [])}
             for who, r in responses.items():
-                if r:
-                    c["sources"] = (c.get("sources") or []) + list(r.get("sources", []))
+                for src in (r or {}).get("sources", []):
+                    if src.get("url") and src["url"] not in seen:
+                        seen.add(src["url"])
+                        c["sources"] = (c.get("sources") or []) + [src]
         verdicts = judging.judge_all(self.judge, states)
         flags = {"claude": [], "codex": []}
         needs_human_ids = []
