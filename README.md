@@ -20,7 +20,8 @@ moved; and afterwards ask questions that are answered only from what the debate 
 - Nothing else leaves your machine.
 - Zero Python dependencies. Python 3.11+.
 
-See [example-report.md](example-report.md) for a finished report and [examples/](examples/) for ready-made specs.
+See [example-report.md](example-report.md) for a finished report (a cheap one-round smoke debate, with the
+judge's rulings and the referee's verdict) and [examples/](examples/) for ready-made specs.
 
 ## The players
 
@@ -229,17 +230,19 @@ independent evidence. Sources are numbered S1, S2, ... in the prompts and listed
 ```toml
 topic = "Should a solo founder write product documentation before writing any code?"
 note = "I am a solo technical founder with 6 months of runway. I want a rule I can actually follow."
-context_files = ["my-notes.md"]
+context_files = ["my-notes.md"]                   # relative to the spec file; its text goes to both sides
 sources = [
   "https://tom.preston-werner.com/2010/08/23/readme-driven-development.html",
-  "~/papers/working-backwards.txt",       # a local file: its text is embedded (up to 40k chars)
+  "https://www.pragmaticengineer.com/working-backwards",
 ]
 ```
 
 ```
 syzetetes run "Should a solo founder ..." --note "I am a solo technical founder ..." \
-  --context my-notes.md --source https://tom.preston-werner.com/... --source ~/papers/working-backwards.txt
+  --context examples/my-notes.md --source https://tom.preston-werner.com/2010/08/23/readme-driven-development.html
 ```
+
+A `--source` can also be a local file, whose text is embedded (up to 40k characters).
 
 `--context -` reads context from stdin, so you can pipe a document in.
 
@@ -373,7 +376,8 @@ What happens with the rulings:
 - `low_confidence` and `judge_disagrees` pause situations let you rule on exactly the claims in question.
 - The synthesis receives the judge's final rulings as a table.
 
-Why it is worth it: in a four-round Opus-versus-Codex debate on population decline, the Sonnet referee
+Why it is worth it: in a four-round Opus-versus-Codex debate on population decline
+([examples/population-collapse.toml](examples/population-collapse.toml)), the Sonnet referee
 ended with 15 of 16 claims "agreed"; Jev rated five of the late agreements between 0.2 and 0.55 and read
 them as conceded or still disputed. Those are the claims a writer most needs re-examined, and nothing
 else in the loop surfaces them.
@@ -386,6 +390,8 @@ to cancel first-option bias; nothing is counted or computed by the model), and i
 debaters tagged by claim ID, which is why the LLM referee, which reads everything, keeps the ledger.
 
 ### Let Codex referee, or run without a judge
+
+[examples/codex-referees.toml](examples/codex-referees.toml)
 
 ```toml
 [models]
@@ -541,7 +547,10 @@ tests/         scripted fake agents; no CLIs or network needed
 ## Contributing
 
 Issues and pull requests are welcome. Keep the debaters symmetric, keep the ledger as the single source
-of truth, give every new flag a spec key, and add a fake-agent test for any change to the engine.
+of truth, give every new flag a spec key, and add a fake-agent test for any change to the engine. Every
+change that touches a spec key, a command, or the report format must update the README recipes, the
+files under `examples/`, and `example-report.md` in the same commit; `tests/test_examples.py` loads every
+example and fails on an unknown key or a missing referenced file.
 
 ## License
 

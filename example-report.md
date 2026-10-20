@@ -1,238 +1,194 @@
-# Should a solo founder write their product's documentation before writing the code?
+# D0006 — Tabs or spaces for Python?
 
 _A structured debate between two AI models, with independent research, a bookkeeping referee, and a numbered reference list._
 
 | | |
 |---|---|
-| Date | 2026-10-20 |
-| Claude | sonnet (effort: low) |
+| Date | 2026-10-21 |
+| Claude | haiku (effort: low) |
 | Codex | gpt-6.1-sol (effort: low) |
-| Referee | claude haiku (effort: low) |
-| Rounds | 2 after opening positions |
-| Ended because | Reached the round cap (2). |
-| Claims | 3 agree to disagree, 10 agreed, 1 conceded |
+| Referee | claude sonnet (effort: medium) |
+| Judge | Jev (jev-latest): independent ruling on every claim; 2 final status(es) contested |
+| Rounds | 1 after opening positions |
+| Ended because | Reached the round cap (1). |
+| Claims | 5 agreed, 1 disputed, 1 open |
+
+**Derived from** D0005 (kept research and rounds 0-1).
 
 ## Executive summary
 
-**Question:** Should a solo founder write product documentation before writing code?
+**Result.** The debate ended on a practical rule, not a claim that one choice is better. For new code, use 4 spaces. For existing code, keep the project's convention unless there is a concrete reason to change. Both debaters endorsed this (K7).
 
-**Bottom line:** Neither debater located a controlled or observational study comparing documentation-first with code-first outcomes for solo founders (K1). Both agree that comprehensive documentation written before any code is not supported by the available evidence as a rule (K13). The remaining disagreement concerns a short default artifact and how experiments should be governed, not full documentation.
+**Established facts**
+- Python 3 accepts consistent tab indentation. Tabs expand to the next multiple of 8 columns. Only mixtures whose meaning depends on tab width raise TabError (K1). Source: [1]
+- PEP 8 recommends 4 spaces, prefers spaces, and allows tabs for consistency with existing tab-indented code (K2). Source: [2]
+- Black emits four spaces per level and has no tab mode. Google's style guide requires four spaces and prohibits tabs (K3). Sources: [15] and [6]
+- The two CPython files checked, Lib/textwrap.py and Lib/test/test_tabnanny.py, use spaces for implementation code. No tree-wide census was done (K5).
 
-**Agreed points.** The most-cited pro-documentation sources ask for less than is often assumed. Preston-Werner's README-first essay limits advance writing to one introductory README (K2). Amazon's PR/FAQ is about one page plus an FAQ, followed by customer testing, measurement and iteration, so Amazon's account cannot isolate the effect of writing first (K2, K7). The Agile Manifesto ranks working software above comprehensive documentation as a priority, not a time order (K9). Much of README-first's value depends on team coordination, which does not apply to a solo founder; early-user review and later reference remain legitimate but unmeasured uses (K3). Private prose cannot validate demand, and customer contact or prototypes address the dominant risk (K4). A written description cannot establish whether an untested implementation meets a numerical latency requirement (K10). Paper prototypes can gather interaction evidence before production code exists (K11).
+**What changed during the debate**
+- Claude withdrew the claim that spaces are inherently more robust (K4). Codex's expandtabs checks showed that an identical tab prefix followed by spaces keeps alignment at widths 2, 4 and 8. Only differing tab prefixes break it.
+- Claude also withdrew the claim that no controlled study exists (K6), because no exhaustive search had been run.
 
-**Where they differ.** Claude recommends a short written description of intended behaviour before building, unless a cheaper experiment answers the question, treated as a forcing function for design choices rather than a gate (K12). Codex recommends recording the uncertainty, observable outcome, decision threshold and effort budget first, then choosing the artifact or experiment, without requiring a product description (K12). Both now accept a precommitted effort budget but differ on the anchor: Claude ties it to the cost of the cheapest falsifying experiment; Codex sets it per task with no universal cap (K14). Claude holds, as a mechanism-based hypothesis, that documentation-first helps most where the text is the interface such as APIs or libraries; Codex finds no outcome evidence for that ranking (K5).
-
-**Caveats.** All positions rest on practitioner essays, company material, and mechanism arguments. Claimed prevalence of demand versus feasibility failure among solo founders is unsourced and is not needed for the narrow claims endorsed here.
-
+**Still contested or open**
+- K4: Claude still believes mixed-prefix alignment failures are common in practice, but it has no measured frequency for this. Codex argues the hazard is avoidable and that PEP 8 permits hanging indents, so alignment is optional. Whether predictable columns outweigh adjustable width is a value judgement.
+- K6: Nobody searched for controlled performance studies. The only study cited was qualitative: Pandey, Oney and Begel (CHI 2024), with 16 blind or visually impaired developers who favoured tabs for navigation. Claude never answered that paper directly, but its closing statement said the paper is evidence it had not weighed.
+- K7 nuance: Codex added that documented accessibility needs can justify reconsidering a convention. Claude accepted this in its closing statement.
 
 ## Points of agreement
 
-### K1. No controlled or observational study comparing documentation-first with code-first outcomes for solo founders has been located by either debater.
+### K1. Python 3 accepts consistent tab indentation and rejects only width-dependent mixtures of tabs and spaces with TabError.
 
-Both debaters searched and found none. The wording must be 'none located', not 'none exists', because the search was not exhaustive. Practitioner essays and company self-reports are the only material.
+Both sides agreed. Tabs expand to the next multiple of 8 columns, and spaces are not a syntactic requirement. The source is the Python lexical analysis reference: [1]
 
-### K2. Preston-Werner's README-first essay and Amazon's PR/FAQ call for one short advance artifact, not comprehensive documentation.
+*Judge agrees: agreed with confidence 0.98; cases even (0.56); crux kind none.*
 
-Preston-Werner explicitly restricts advance documentation to one introductory README [1]. Amazon's PR/FAQ is about one page plus FAQ, followed by customer testing ([2]; [11]).
+### K2. PEP 8 recommends four spaces per level, prefers spaces, and permits tabs to stay consistent with existing tab-indented code.
 
-Sources: [1]
+Both sides agreed this is a convention, not a language rule. Codex added that project consistency outranks mechanical compliance. Source: [2]
 
-### K4. Private prose cannot validate demand; a written offer shown to real customers gives weak behavioural signals short of purchase, and customer contact is what matters.
+*Judge agrees: agreed with confidence 0.99; cases even (0.92); crux kind none.*
 
-Both now agree that customer behaviour toward a written offer is weak evidence short of purchase. The unsourced dominant-risk base rate was dropped by both. Residual definitional point: whether a landing page counts as documentation.
+Sources: [2]
 
-Sources: [18]
+### K3. Black emits four spaces per level with no tab mode, and Google's Python style guide requires four spaces and prohibits tabs.
 
-### K6. No independent evidence located measures solo-founder outcomes from spec-first or spec-driven AI coding workflows; existing studies use other populations and proxy outcomes.
+Claude had verified Black's no-option policy and the Google guide, but not the four-space width. Codex closed that gap with Black's source, where Line.__str__ multiplies a four-space string by depth. This describes tools and institutional preference, not human performance. Sources: [15] and [6]
 
-Both revised. Claude dropped the 'vendor-sourced' label after Codex noted ESEM 2026 and an arXiv preprint exist. Those studies examine specification artifacts and framework proxies, not solo-founder sequencing. No URLs for these studies appear in the ledger, so they are not cited here.
+*Judge agrees: agreed with confidence 0.94; Codex's case stronger (0.91); crux kind none.*
 
-Sources: [20], [21]
+Sources: [9], [7], [6]
 
-### K7. Amazon's Working Backwards bundles advance writing with customer testing, measurement and iteration, so its account cannot isolate the causal effect of writing first.
+### K5. The CPython files checked, textwrap.py and test_tabnanny.py, use spaces for implementation indentation; a tree-wide claim is unverified.
 
-Agreed. Attributing outcomes to document order exceeds the evidence [11].
+Claude narrowed its claim to textwrap.py. Codex added test_tabnanny.py, where tab characters appear only in test fixtures. Both accepted that this is a sample-level observation and that no tree-wide census was done.
 
-### K8. Camuffo et al.'s four randomized trials (759 firms) test scientific decision-making and hypothesis testing, not documentation-first versus code-first sequencing.
+*Judge agrees: agreed with confidence 0.33; Codex's case stronger (0.58); crux kind scope or definition.*
 
-Agreed. The study is relevant to explicit hypothesis testing [12] but cannot establish a documentation sequencing effect.
+Sources: [8], [12]
 
-### K9. The Agile Manifesto does not prescribe whether documentation or code is written first; its ranking is a priority, not a temporal order.
+### K7. Use four spaces for new Python code; in an existing project, follow its established convention unless there is a concrete reason to migrate.
 
-Agreed. A priority ranking is satisfied by either README-first or prototype-first sequencing [3].
+Both sides held this core rule. Codex added that Black compatibility supports spaces for new code and that documented accessibility needs can be a concrete reason to migrate. In its closing statement Claude accepted this qualification.
 
-### K10. A written description of intended behaviour alone cannot establish whether an untested implementation meets a numerical latency requirement; performance evidence needs an implementation or representative experiment.
+*Judge agrees: agreed with confidence 0.78; Codex's case stronger (0.38); crux kind none.*
 
-Agreed as a narrow exception. Claude's request for data on how often feasibility failures cause solo-founder failure is unsourced and not needed for this claim.
-
-### K11. Paper prototypes can collect user interaction evidence before production code exists.
-
-Agreed. Inexpensive interactive representations are an alternative to both extensive writing and production code [15].
-
-### K13. Comprehensive documentation written before any code is not supported by the available evidence as a rule for solo founders.
-
-Agreed by both. This is the strongest point of consensus and is well supported by the absence of contrary evidence and the Preston-Werner and Amazon sources.
+Sources: [2]
 
 
-## Points conceded during the debate
+## Points of disagreement
 
-### K3. README-first's team-coordination benefit does not apply to a solo founder; reader benefits for early users and the future self remain but are unmeasured and do not show the README must precede the first experiment.
+### K4. Whether spaces are more robust than tabs across editors and views is contested; all-tab block structure is width-independent, and the continuation-alignment hazard is layout-dependent.
 
-- **Claude:** Accepted Codex's revision: the coordination benefit is lost; reader benefits (early users, future self) exist but nothing shows they require the README to precede the first experiment. Withdrew the AI-agent-reader claim.
-- **Codex:** Revised: coordination benefit lost; early-user review and later reference are legitimate, unmeasured uses; these do not establish that the README must precede the first experiment.
-Codex's revision was accepted by Claude. The residual question, whether advance descriptions improve outcomes when they precede the first experiment, is untested.
+- **Claude:** Withdrew the original wording. Revised: all-tab block structure is width-independent, but spaces used for continuation alignment after tabs render differently by tab width; the weighting is a value judgement.
+- **Codex:** Rejects the original wording. Argues the alignment hazard is layout-dependent: an identical tab prefix followed by spaces keeps alignment at widths 2, 4 and 8 (checked with expandtabs); only differing tab prefixes break it. PEP 8 permits hanging indents, so alignment is optional.
+- **Crux:** Both reject the original wording, so the judge's non-agreed reading is accepted. The remaining factual split is whether the continuation-alignment hazard is general or avoidable by encoding. Whether predictable columns outweigh adjustable width is a value judgement.
+Both sides rejected the original claim that spaces are more robust. Codex's expandtabs checks showed that an identical tab prefix followed by spaces keeps alignment at widths 2, 4 and 8, and that only differing prefixes break it. Claude still thinks mixed prefixes are a common failure in practice, but it has no measured frequency. Whether predictable columns outweigh per-reader width control is a value judgement.
 
-Sources: [1]
+*Judge disagrees: rules **agree to disagree** with confidence 0.52 (referee: disputed); Codex's case stronger (0.93); crux kind value judgement.*
+
+Sources: [1], [11], [4]
 
 
-## Agreed to disagree
+## Open points
 
-### K5. Documentation-first is most plausibly strongest where the text is the interface (APIs, CLIs, libraries), but no comparative outcome evidence exists.
+### K6. No controlled study of tab versus space indentation was located, but this is unverified, and qualitative accessibility evidence supports tabs for some users.
 
-- **Claude:** Maintained as a mechanism-based hypothesis: contract review of an API spec is possible before implementation; paper prototypes answer interaction questions prose cannot.
-- **Codex:** Written contracts permit interface review without implementation, but no evidence establishes that documentation-first yields greater benefit for API products than visual ones.
-- **Crux:** No comparative outcome evidence across product categories exists; the ranking rests on interpretation of design practice, not measured outcomes.
-Claude holds this as a mechanism-based hypothesis: contracts can be reviewed before implementation [17]. Codex accepts the mechanism but finds no evidence that the benefit is greater than for visual products. Left unresolved.
+- **Claude:** Withdrew the absence claim; no exhaustive search was run, so it is unverified.
+- **Codex:** Rejects the absence claim as established. Cites Pandey, Oney and Begel (CHI 2024), a qualitative study of 16 blind or visually impaired developers recommending tabs for navigation. It is not a controlled performance study.
+- **Crux:** The judge's open ruling is adopted. The earlier 'agreed' status is withdrawn because both sides revised the claim. It stays open: Claude has not responded to the CHI 2024 paper, and no one has searched for controlled performance studies.
+Claude withdrew its absence claim because it had not run an exhaustive search. Codex cited Pandey, Oney and Begel (CHI 2024), a qualitative study of 16 blind or visually impaired developers who recommended tabs for navigation. That study is not a controlled performance comparison. Nobody searched for controlled studies, so the question stays open.
 
-### K12. The default for a solo founder is a short, testable product description written before building, but not a mandatory gate before experiments that can answer a question the description cannot.
+*Judge disagrees: rules **disputed** with confidence 0.46 (referee: open); Codex's case stronger (0.69); crux kind missing evidence.*
 
-- **Claude:** Before building, record uncertainty, threshold and budget; also write a short description of intended behaviour unless a cheaper experiment answers the question. Describes the choice as a value judgment with no evidence either way.
-- **Codex:** Before the next deliberate experiment, record uncertainty, observable outcome, decision threshold and effort budget, then select the artifact or experiment without requiring a prior product description. Describes this as unsourced procedural judgment.
-- **Crux:** Value and procedure judgment: whether the default includes a short written behavioural description of the product (Claude, which forces design choices) or only a decision-criterion test plan with an effort budget (Codex). Both agree no mandatory documentation gate exists; neither side has evidence settling the choice.
-Both agree there is no mandatory documentation gate. They disagree on whether the default includes a short behavioural description (Claude, to force design choices) or only a decision-criterion test plan with an effort budget (Codex). Neither has evidence settling the choice; this is a values and procedure dispute.
-
-### K14. A short-description-first rule is only useful with a precommitted effort budget, but the budget's anchor is disputed.
-
-- **Claude:** Revised: the writing budget should not exceed the cost of the cheapest experiment that could test the same hypothesis; one day is a rough default only. Accepts that a fixed cap is not tied to the decision.
-- **Codex:** Revised: a precommitted effort budget and reassessment at the budget or a specified observation; violations are observable (missing criteria, overrun without reassessment, retroactive threshold change). Neither effectiveness nor a universal one-day cap is established.
-- **Crux:** Value judgment: whether the budget should be anchored to the cost of the cheapest falsifying experiment (Claude) or set per task in advance with no universal cap (Codex). Both now accept that a precommitted budget is required; the remaining difference is the anchor and whether a one-day default is offered.
-Both accept that a precommitted budget is needed. Claude now ties the cap to the cost of the cheapest experiment testing the same hypothesis (one day only a rough default). Codex prefers per-task budgets with explicit reassessment and rejects a universal one-day cap. Neither effectiveness nor a universal cap is established.
+Sources: [13]
 
 ## Strongest case for
 
-The strongest case for writing first, as argued in the debate, is that a short written description of intended behaviour forces design decisions before code is built. Claude argues that writing exposes scope and interface choices early, that the text can be shown to early users, and that it serves the founder's future self. Preston-Werner's README-first essay and API contract practice are the main sources cited. The case is a plausible mechanism, not a measured outcome.
+The case for spaces rests on convention and tooling. PEP 8 prefers four spaces. Black emits only four spaces per level and has no tab mode. Google's guide requires four spaces and prohibits tabs. The CPython files checked use spaces. Spaces give predictable columns, so Python sources look the same in every editor and review view. Following the dominant convention also avoids friction with formatters and style guides. Codex framed this as a recommendation about convention and tooling, not a demonstrated human-performance advantage.
 
 ## Strongest case against
 
-The strongest case against comprehensive documentation first, and against any mandatory documentation gate, is that the evidence reviewed does not establish any sequencing advantage for solo founders. Team-coordination benefits vanish for a solo founder. Prose cannot validate demand; customer contact and prototypes address that risk. Basecamp's objection to detailed specifications written before implementation, and the Agile Manifesto's priority of working software, point toward learning through building. Experiments can answer questions a description cannot, such as performance and interaction. Both debaters reject comprehensive documentation first.
+The case for tabs is that Python 3 accepts consistent tabs, and an all-tab block structure does not depend on display width. Each reader can set the width they want. Codex's checks showed the alignment problem is narrow: an identical tab prefix followed by spaces keeps alignment at widths 2, 4 and 8. PEP 8 permits hanging indents, so alignment is optional, and it also permits tabs in existing tab-indented code. Pandey, Oney and Begel (CHI 2024) is a qualitative study of 16 blind or visually impaired developers who recommended tabs for navigation. The debaters agreed that documented accessibility needs can justify reconsidering a convention. No controlled study showed spaces to be better.
 
 ## Guidance for the author
 
-Do not write that research shows documentation-first fails or succeeds. Write "none located by either debater" for the comparative-study claim. Quote Preston-Werner and Amazon accurately: both ask for one short artifact, and Amazon's process bundles writing with customer testing. Present the disagreement as one of procedure and value: Claude's short behavioural description versus Codex's precommitted test plan with effort budget. Label the budget anchor (cheapest falsifying experiment versus per-task budget) as unresolved. Mark the interface-versus-visual ranking as a hypothesis. Avoid unsourced base rates for demand versus feasibility failure. Cite the spec-driven AI studies only after retrieving their URLs and checking them directly.
+- Present the 4-space default as convention and tooling, not as a language requirement or a measured productivity result.
+- State accurately that Python 3 accepts consistent tabs and raises TabError only for width-dependent mixtures.
+- Cite PEP 8 [2], Black's style documentation [15] and the Google guide [6] for the tooling claims.
+- Treat spaces being more robust than tabs as a value judgement. Do not repeat it as established fact.
+- Describe the CHI 2024 study as qualitative, with 16 participants, not as controlled evidence.
+- Include the rule for existing projects and the accessibility exception.
+- If you need a claim about controlled studies or about CPython as a whole, do the search or census yourself first.
 
 ## Caveats
 
-- No live searches were run this debate; the evidence base is the ledger and the sources named in the transcript.
-- No controlled or observational study comparing documentation-first with code-first outcomes for solo founders was located by either debater; this is 'none located', not 'none exists'.
-- Spec-driven AI coding research (ESEM 2026 and an arXiv preprint) was referenced without URLs in the ledger; those sources were not verified here.
-- Claims about the prevalence of demand failure versus feasibility failure among solo founders are unsourced.
-- The Camuffo et al. study concerns hypothesis testing in firms, not documentation sequencing, and should not be read as evidence for either position.
-- Claude's briefing listed sources beyond those in the ledger (for example Parnas and Clements, Royce 1970, Getting Real, Paul Graham). Those were not verified against the ledger and are not relied on for verdicts.
+- No research briefings were produced, and no exhaustive literature search was run by either side. The absence of controlled studies is unverified, not established.
+- The CPython evidence covers two files only. It says nothing about the whole tree or about Python projects generally.
+- The only empirical human-factors source is a small qualitative study (16 participants) of blind or visually impaired developers. It does not measure defects, readability or productivity.
+- Claude's belief that mixed-prefix alignment failures are common has no measured frequency. Codex's expandtabs checks were done on specific layouts and may not generalise.
+- Claude did not directly respond to the CHI 2024 paper in the ledger, though its closing statement acknowledges it.
+- The judge's confidence on K4 and K6 was low (about 0.5 for each), and K5 was agreed at only 0.325 confidence, so treat those rulings as provisional.
 
 ## Closing statements
 
 ### Claude
 
-**Final position.** A solo founder should not write comprehensive documentation before writing code. We agree on this (K13), and the evidence supports it. The sources usually cited for writing first do not say otherwise. Preston-Werner's README-first essay asks for one introductory README. Amazon's PR/FAQ is about a page plus an FAQ, and it is followed by customer testing (K2). My default recommendation is narrower. Before building, write a short description of intended behaviour, unless a cheaper experiment can answer the question. Treat it as a cheap forcing function for design choices, not as a gate. Cap the effort in advance.
+## Closing statement: tabs or spaces for Python
 
-**The evidence is thin.** Neither of us located a controlled or observational study comparing documentation-first with code-first outcomes for solo founders (K1). The case on both sides rests on practitioner essays, company self-reports, and mechanism arguments. My recommendation is a judgment call, not a finding.
+**Final position.** Python accepts consistent tab indentation. Mixing tabs and spaces is rejected only when the meaning depends on tab width, which the interpreter reports as TabError. For new code, use 4 spaces. For existing code, follow the project's established convention unless there is a concrete reason to migrate. PEP 8 [2] states this preference directly. Black [14] emits four spaces per level and offers no tab mode. Google's Python style guide [6] requires four spaces and prohibits tabs. The 4-space default is a convention about tooling and institutional preference, not a language requirement.
 
-**What changed my mind:**
-- **Coordination benefit (K3).** I accepted Codex's point that much of README-first's value comes from having a team. For a solo founder, what remains is clarifying scope for oneself and letting early users or a future self read it. Nothing shows that any of this requires the README to precede the first experiment. I also withdrew my claim about AI agents as readers.
-- **Demand evidence (K4).** I moved from "prose can't validate demand" to a narrower claim. Private prose can't validate demand. A written offer shown to real customers gives weak behavioural signals short of purchase. What mattered was customer contact, not documentation order. I dropped my unsourced claim that demand is the dominant risk.
-- **Spec-driven AI tools (K6).** I dropped the "vendor-sourced" label. Research exists, including ESEM 2026 and an arXiv preprint. It studies other populations and proxy outcomes, not solo-founder outcomes. I also dropped my unsourced inference about prototype costs.
-- **Agile Manifesto (K9) and Amazon (K7).** The Manifesto ranks values and sets no order in time. Amazon's process bundles advance writing with testing and iteration, so it can't isolate the effect of writing first.
-- **Cost cap (K14).** A fixed one-day cap is not tied to the decision. I now say the writing budget should not exceed the cost of the cheapest experiment that could test the same hypothesis. One day is only a rough default.
+**What I changed my mind about.**
+- **K3 (Black's indentation width).** I had verified Black's no-option policy but not the four-space width. Codex's citation of Black's source, where Line.__str__ multiplies a four-space string by depth, closed that gap.
+- **K4 (robustness of spaces).** I withdrew the original wording. Codex's expandtabs check changed my view. An all-tab block prefix is width-independent. Continuation alignment breaks only when the tab prefixes of the two lines differ. An identical tab prefix followed by spaces keeps alignment at widths 2, 4 and 8. The hazard is real but narrower than I first claimed.
+- **K6 (controlled studies).** I withdrew the claim that no such study exists. I had not run an exhaustive search. Codex's citation of Pandey, Oney and Begel (CHI 2024) is a qualitative study of 16 blind or visually impaired developers who favoured tabs for navigation. It is not a performance study, but it is evidence I had not weighed.
+- **K7 (migration).** Codex's point that documented accessibility needs can justify migrating a project's convention is correct. I accept it as a qualification of the agreed rule.
 
-**Where we still differ (K12, K5, K14).** Codex would start from a recorded uncertainty, observable outcome, threshold and effort budget, and then choose the artifact. I would also require a short behavioural description. I think writing it forces design decisions. Codex sees no evidence for adding it. I can't settle this either, so I rate it a values and procedure dispute.
+**What I remain unconvinced of.**
+- **K4, the factual part.** I still think alignment after mixed prefixes is a common failure mode in practice, because editors and reviewers do not all keep prefixes identical. I have no measured frequency for this, so the claim is unsourced and I hold it with low confidence.
+- **K4, the value part.** Whether predictable columns outweigh per-reader width control is a value judgement. Neither side can settle it from the evidence.
+- **K6, the open question.** No one has searched for controlled performance studies on defects, readability or productivity. The question stays open until someone does.
 
-**Remaining doubts.** These are unsourced:
-- Documentation-first helps more for APIs, CLIs and libraries than for visual products. I hold this as a mechanism-based hypothesis (K5).
-- Demand failures outnumber feasibility failures among solo founders (K10). The latency exception holds either way.
-
-If the writer publishes, the safe wording is "none located by either debater," not "none exists."
+**Kind of disputes.** K3 was a factual gap, now closed. K4 is partly factual (how general the alignment hazard is) and partly a value judgement (predictability versus adjustability). K6 is an open evidence gap. K5 is a sample-level observation: the CPython files checked use space-based implementation indentation, and the tree-wide claim is unverified.
 
 Changed my mind on:
-- Coordination benefits of README-first do not transfer to solo founders (K3)
-- Written offers exposed to customers give weak demand evidence; private prose gives none (K4)
-- Dropped 'vendor-sourced' framing for spec-driven tools; research exists but studies proxies (K6)
-- A fixed one-day cap is not tied to the decision; budget should be anchored to the cheapest falsifying experiment (K14)
-- Dropped the unsourced claim that demand risk dominates solo-founder failure
+- K3: Black's four-space width is now sourced via Black's Line.__str__ implementation.
+- K4: the all-tab structure is width-independent; the alignment hazard applies only when tab prefixes differ, per the expandtabs check.
+- K6: withdrew the claim that no controlled study exists; the CHI 2024 qualitative study on blind and visually impaired developers is relevant evidence.
+- K7: documented accessibility needs can justify migrating an existing convention.
 
 Still unconvinced on:
-- That a default short behavioural description should be required, rather than only a decision-criterion test plan (K12); it is a value judgment with no evidence either way
-- That documentation-first helps more for APIs and CLIs than for visual products (K5); mechanism-based, unmeasured
-- That demand failures outnumber feasibility failures for solo founders; unsourced and not needed for the K10 latency exception
-- Whether the cap should be anchored to the cheapest falsifying experiment or set per task (K14)
+- K4 factual: alignment breakage after mixed tab prefixes is common in practice; I have no measured frequency, so this is unsourced and held with low confidence.
+- K4 value: whether predictable columns outweigh per-reader tab width control is a value judgement that the evidence cannot settle.
+- K6: no controlled performance study on defects, readability or productivity has been found, and no systematic search was run, so the question stays open.
+- K5: the tree-wide claim about CPython indentation remains unverified; only textwrap.py and test_tabnanny.py were checked.
 
 ### Codex
 
-A solo founder should not treat documentation as a prerequisite for coding. A short README or behavioural description can clarify scope and expose interface choices, but the evidence reviewed does not establish that writing it before the first experiment improves founder outcomes. Neither debater located a study directly comparing documentation-first with code-first sequencing for solo founders. Comprehensive documentation before any code is therefore unjustified as a general rule.
+My final recommendation is **four spaces for new Python code, and the established convention for an existing project unless there is a concrete reason to migrate** (K7). This follows PEP 8 and fits Black's formatting behavior. It is a recommendation about convention and tooling, not a demonstrated advantage in human performance [4] [15].
 
-My preferred procedure remains: before the next deliberate experiment, record the uncertainty, observable outcome, decision threshold and effort budget. Then choose the artifact or experiment that addresses that uncertainty. That could be a written offer shown to customers, an API contract, a paper prototype or an implementation experiment. This is an **unsourced procedural judgment**, not a demonstrated superior workflow.
+**K1 and K2: accept.** Consistent tabs are valid Python. Python expands tabs to the next multiple of eight columns and rejects indentation mixtures whose meaning depends on tab width. Spaces are preferred by PEP 8, not required by Python's grammar [1].
 
-I revised several positions. Customer behaviour toward a written offer can provide limited demand evidence, although private prose cannot. README-first retains legitimate uses for early readers and future reference even when team coordination benefits disappear. I also corrected the characterization of specification-driven coding research: empirical work beyond vendor material exists, but the studies discussed do not establish solo-founder outcomes or a sequencing advantage. On effort limits, I favor a precommitted budget with explicit reassessment over a universal one-day cap.
+**K4: revise.** I reject the broad claim that tabs inherently make block structure less robust across display widths. The strongest objection concerns continuation alignment when tabs and spaces interact. Our checked examples narrowed that objection: identical tab prefixes followed by spaces preserve alignment, while differing prefixes can disrupt it. Hanging indents also make column alignment optional. Predictable columns versus adjustable indentation width remains a value judgement, not an established performance result.
 
-I remain unconvinced that every founder should default to a product description before experimenting. Claude's strongest rationale is that describing intended behaviour forces design decisions. That is a plausible mechanism, but it does not settle whether those decisions should precede an experiment capable of informing them. Likewise, reviewing an API contract before implementation is possible, but that does not establish a greater outcome benefit than documentation offers visual products. These remaining disagreements concern procedure and interpretation under missing comparative evidence.
+**K5: accept the limited finding.** The two inspected CPython files use spaces for implementation indentation. That sample does not establish a repository-wide result.
+
+**K6: revise.** The evidence changed my assessment of accessibility: the qualitative study of 16 blind or visually impaired developers supplies a concrete reason to consider tabs for some users. It does not establish a controlled productivity or readability advantage. Neither side conducted a search sufficient to establish that controlled comparisons do not exist.
+
+I therefore retain spaces as the default while rejecting claims of universal superiority. Documented accessibility needs can justify reconsidering an existing convention.
 
 Changed my mind on:
-- Customer behaviour toward a written offer provides limited demand evidence.
-- Solo founders retain legitimate reader and reference uses for advance documentation, although sequencing benefits remain unmeasured.
-- Specification-driven coding research extends beyond vendor material, but does not establish solo-founder sequencing benefits.
-- Effort limits should involve a precommitted budget and reassessment, without asserting a universal one-day cap.
+- K4: Narrowed the rendering objection to particular alignment layouts rather than tabs generally.
+- K6: Accessibility evidence gives tabs a concrete user-specific justification.
+- K6: An unsuccessful or incomplete search cannot establish the absence of controlled studies.
 
 Still unconvinced on:
-- A short product description should be the default prerequisite to the first experiment.
-- Documentation-first produces greater benefits for API products than for visual products.
-- The writing budget should universally be anchored to the cheapest falsifying experiment.
+- K4: That predictable columns universally outweigh reader-adjustable indentation width.
+- K6: That either indentation style has an established controlled advantage in defects, readability or productivity.
+- K5: Any tree-wide CPython indentation claim based on the two inspected files.
 
-## Research briefings
+## The referee's verdict
 
-### Claude
-
-I did not run live searches this turn. This briefing relies on well-known primary sources that I'm confident exist, and I've marked confidence accordingly. The question has no direct empirical literature for solo founders. The evidence is practitioner argument, analogies from larger teams, and recent AI-assisted "spec-driven" tooling.
-
-Pro side: Tom Preston-Werner's "Readme Driven Development" (2010) argues a README written first forces you to clarify scope and saves wasted code. Amazon's "working backwards" process writes a press release and FAQ before building. Design-first API practice (OpenAPI) writes the contract before the code. Parnas and Clements (1986) argue for writing documentation as if the design were rational, because it disciplines thinking. Spec-driven tools for AI coding (GitHub Spec Kit, AWS Kiro) make a written spec the main input to code generation.
-
-Con side: The Agile Manifesto values "working software over comprehensive documentation." Docs written before contact with users and code go stale, and a solo founder's main risk is building something nobody wants, which docs can't test. Royce's 1970 paper is the classic warning about big up-front design. 37signals' *Getting Real* advises designing the interface first and keeping specs minimal.
-
-Most defensible middle: write a short, disposable artifact first (one-page README, press-release/FAQ, or API sketch) and write full documentation after the design stabilizes. The real disagreement is what "documentation" means (README vs. user manual vs. internal spec) and whether the goal is clarity of thought or customer validation. I found no controlled study comparing doc-first to code-first for solo founders.
-
-- **Readme Driven Development is the best-known explicit doc-first argument for small projects.** (high confidence) Preston-Werner (GitHub co-founder) argues you should write the README before any code, so you consider the design and avoid building the wrong thing. It is an opinion essay with no data. [1]
-- **Amazon's Working Backwards writes a customer-facing press release and FAQ before building, showing doc-first works as a product-definition tool at scale.** (medium confidence) The process was described by Bryar and Carr in the book 'Working Backwards' (2021). The artifact is a roughly one-page press release plus FAQ, not full documentation. No published controlled outcome data. [2]
-- **The Agile Manifesto explicitly ranks working software above comprehensive documentation, a direct counterweight.** (high confidence) Manifesto text: 'Working software over comprehensive documentation.' It also says that while there is value in the items on the right, the items on the left are valued more. [3]
-- **Parnas and Clements argue that docs written as if the design were rational improve the design process, even though real design is not rational.** (medium confidence) Their 1986 paper 'A Rational Design Process: How and Why to Fake It' recommends documenting as if designing top-down. It's the more precise argument that the document can be written after, yet in an idealized form. [4]
-- **Spec-driven development has been revived by AI coding agents, with the spec as the primary artifact.** (medium confidence) GitHub released Spec Kit as an open-source toolkit for spec-driven development with AI agents. AWS's Kiro IDE uses requirements, design and task specs before code generation. These are vendor claims; independent outcome evidence is thin. [5], [6]
-- **Design-first API development (writing the OpenAPI contract before code) is an established doc-first practice with documented benefits for parallel work and consumer review, benefits that matter less to a solo founder.** (medium confidence) The OpenAPI Initiative and vendor guidance describe design-first as enabling parallel front-end/back-end work and early feedback. A solo founder has no parallel team to coordinate. [7]
-- **Big up-front design has a long-criticized record, which cautions against full docs first.** (medium confidence) Royce's 1970 paper 'Managing the Development of Large Software Systems' is often cited as the origin of waterfall, though Royce himself said the simple sequential form was risky and recommended iteration. [8]
-- **37signals' Getting Real recommends interface-first design and minimal specs rather than heavy written docs, a solo-scale counterexample.** (medium confidence) The book argues for starting with the interface and avoiding functional specs, because specs create an illusion of agreement. It is a practitioner opinion from a bootstrapped company. [9]
-- **A solo founder's dominant risk is market risk, which doc-first does not address without customer contact.** (medium confidence) Lean Startup and Paul Graham's essays emphasize shipping and talking to users early. This is an interpretation. Graham's 'Do Things That Don't Scale' is the commonly cited source. [10]
-
-Contested points: Definition: 'documentation' as a README or one-page PR/FAQ versus a full user manual or technical spec. Most pro-doc-first evidence concerns the small artifacts.; Whether writing is a validation tool or just a thinking tool. A doc can be shown to customers, but a prototype tests demand better. This is partly an empirical question and partly a value judgment about cost.; Whether the AI-coding era changes the answer, because a spec now directly drives code generation and lowers the cost of code, which makes up-front clarity more valuable. The evidence is mostly vendor claims.; Solo founder context: team-coordination benefits (API contracts, shared understanding) vanish, but the founder's future self and early users remain as readers.; Docs-rot risk: docs written first are likely to diverge from the product; the severity depends on whether they are kept as living artifacts.
-
-### Codex
-
-The evidence supports distinguishing a short description of the intended product from comprehensive documentation written before implementation. Tom Preston-Werner explicitly advocates writing a README first, while limiting it to one introductory file. Amazon describes writing a one-page press release and FAQ before development, followed by customer testing and iteration. These are documented practices and practitioner arguments, not controlled demonstrations that documentation-first improves solo-founder outcomes.
-
-The strongest relevant experimental evidence concerns entrepreneurial hypothesis testing rather than documentation sequence. Four randomized trials involving 759 firms found that teaching a scientific approach increased idea termination and affected pivot patterns. This supports testing explicit assumptions, but does not establish whether prose, prototypes, or code should come first. A study of 20 software startups likewise examines learning through prototypes without comparing documentation-first against code-first.
-
-Counterarguments emphasize information discovered through building and use. Basecamp argues that detailed functional specifications force premature decisions. Usability guidance supports testing inexpensive prototypes before implementation, providing an alternative to both extensive writing and immediate production coding.
-
-This research found no direct controlled comparison of documentation-first and code-first among solo founders. A defensible provisional interpretation is to write enough to expose the intended user experience and assumptions, then choose the cheapest credible test of the largest uncertainty. That interpretation remains unproven as a universal sequencing rule. The debate should settle what counts as documentation, whether experimental code is exempt, and which outcomes justify the founder's time investment.
-
-- **F1. The original README-first argument explicitly limits the amount of advance documentation.** (high confidence) Tom Preston-Werner's August 23, 2010 essay says, "Write your Readme first." It restricts the proposed design documentation to one introductory file and explicitly distinguishes this from extensive documentation-driven development. [1]
-- **F2. Some benefits claimed for README-first depend on having multiple developers, limiting their relevance to a solo founder.** (high confidence) Preston-Werner separately argues that a defined interface lets other developers begin projects that integrate with the software before implementation is complete. His individual benefits concern thinking through scope and the public API before changing code. [1]
-- **F3. Amazon uses customer-oriented writing before development, but its artifact is a product proposal rather than a complete user manual.** (high confidence) AWS describes a single-page future press release written before budgeting, team assembly, or coding. Its accompanying FAQ addresses customer questions and internal questions about profitability and resources. [11]
-- **F4. Amazon's writing-first process includes subsequent empirical testing rather than treating the document as sufficient validation.** (high confidence) The AWS account describes exposing customers to products in development, measuring their impact, releasing limited initial versions, and adjusting them using feedback. [11]
-- **F5. Randomized entrepreneurship research supports explicit hypothesis testing, but does not test documentation-first.** (high confidence) Camuffo and colleagues' 2024 study combines four randomized controlled trials involving 759 firms and 11,463 observations. It reports increased idea termination and pivot results consistent with treated firms making a few changes rather than none or repeated changes. [12]
-- **F6. Startup-specific research identifies prototyping as a learning process, without establishing one universal artifact sequence.** (medium confidence) Nguyen Duc, Wang, and Abrahamsson conducted a multiple-case study of 20 European software startups. They grouped influences on prototyping into artifacts, team competence, collaboration, customer, and process dimensions. [13]
-- **F7. Basecamp presents a direct practitioner objection to detailed specifications written before implementation.** (high confidence) Getting Real argues that functional specifications create an illusion of agreement and require important decisions when information is lowest. It recommends learning through building and using the application. [14]
-- **F8. Early testing can use inexpensive interactive representations instead of either documentation or production code.** (medium confidence) Jakob Nielsen describes conducting studies using three homepage mockups and learning how users understood the proposed services. His paper-prototyping guidance recommends observing users before implementation. [15]
-- **F9. The Agile Manifesto does not reject documentation, and does not prescribe code-first sequencing.** (high confidence) The manifesto values "Working software over comprehensive documentation" and explicitly states that the items receiving lower priority still have value. [3]
-- **F10. Broader documentation research does not resolve the solo-founder sequencing question.** (medium confidence) A 2023 systematic literature review selected 74 studies published between 2010 and June 2021. It identified nine factors relevant to agile documentation and found that documentation tools and methods address different challenges without being synchronized. [16]
-- **F11. For APIs, a written interface description can also become input to implementation tools.** (high confidence) The Swagger 1.2 specification states that API description files can drive Swagger UI documentation and Swagger Codegen client generation, with additional uses by testing tools. [17]
-
-Contested points: Definition: A short README, future press release, API contract, functional specification, and complete user manual impose different costs and test different assumptions.; Empirical dispute: No direct controlled solo-founder comparison was located. Practitioner success stories cannot isolate documentation sequence from other development practices.; Interpretation: Preston-Werner's limited README-first proposal and Basecamp's rejection of extensive functional specifications may be compatible despite their different rhetoric.; Interpretation: Evidence favoring explicit hypotheses and early customer feedback does not establish that documentation must precede every line of experimental code.; Empirical dispute: Documentation may clarify an intended interface, while a prototype may reveal interaction or feasibility problems that prose cannot establish. Their relative value remains unquantified here.; Value judgement: The acceptable delay before building depends on how the founder weighs clarity, speed, rework, and scarce attention.
+Use four spaces for new Python code. In an existing project, follow its established convention unless you have a concrete reason to migrate. Both debaters ended here (K7). This is a convention and tooling choice, not a language rule and not a demonstrated performance advantage. Python 3 accepts consistent tabs and rejects only mixtures whose meaning depends on tab width (K1). PEP 8 prefers spaces but permits tabs for consistency (K2). Black and Google's guide enforce four spaces (K3). The debaters did not agree on whether spaces are more robust than tabs across editors and diffs (K4). Claude thinks the alignment hazard is common in practice, but it has no measured frequency. Codex showed it is layout-dependent. Whether predictable columns outweigh per-reader width control is a value judgement. Whether controlled studies exist is unresolved (K6). Qualitative accessibility evidence favours tabs for some users, and both sides accepted that it can justify migration.
 
 ## Debate transcript
 
@@ -240,181 +196,119 @@ Contested points: Definition: A short README, future press release, API contract
 
 #### Claude
 
-**Thesis:** A solo founder should write a *short, disposable* description of the product before building (a README, one-page press release/FAQ, or API sketch). They should not write *comprehensive* documentation first. The short document is a thinking tool, not a validation tool. The riskiest assumption still needs a prototype or customer contact, and sometimes that test should come before even the short document.
+**Thesis:** For Python, spaces are the correct default, and the question is settled more by convention and tooling than by any language rule. Tabs are legal and work, so the case for spaces rests on consistency and on the fact that the language's own guidance prefers them. The "tabs are more accessible" argument is real but does not outweigh that.
 
-**What the evidence is.** There is no controlled comparison of doc-first and code-first for solo founders. I did not run new searches this turn. The claims below rest on sources I know and should be re-checked before publication. Every pro-doc-first source is a practitioner essay or a company's account of its own process. The only randomized evidence I know of (Camuffo et al., Strategic Management Journal, 2024, [12]) tests hypothesis-driven decision-making, not documentation order.
+**Caveat on inputs:** The message said two research briefings were attached, but none came through. This position is drawn from my own knowledge and the sources below. I did not run a search, so every factual claim should be re-checked before publication.
 
-**The strongest objection to my own position.** Preston-Werner's README-first essay [1] is the best pro case. For a solo founder, though, its benefits shrink. The coordination benefit disappears, because there are no other developers to unblock. What remains is "think before coding", and a throwaway spike or paper prototype may do that better for interaction and feasibility questions. So the claim "write first" is strongest for APIs, CLIs and developer tools, where the README *is* the interface. It is weakest for visual consumer products.
+**Claim 1 (fact, high).** Python 3 accepts either tabs or spaces but refuses ambiguous mixing. Indentation is measured with tab stops every 8 columns, and inconsistent mixing raises `TabError`. This is documented in the lexical analysis reference [1]. Practical consequence: a file can run correctly with tabs, so "tabs break Python" is false. The real hazard is mixing, which the interpreter catches.
 
-**Where the sides actually agree.** Basecamp's *Getting Real* [14] attacks functional specs, not a one-page statement of intent. Amazon's PR/FAQ is one page and is followed by customer testing and iteration [11]. The dispute is mostly about what "documentation" means. A writer should say this plainly instead of staging a doc-first versus code-first fight.
+**Claim 2 (fact, high).** PEP 8, the de facto style guide, says to use 4 spaces per indentation level and that spaces are preferred. It allows tabs only to stay consistent with code that already uses them [2]. This is the strongest single document in the dispute, and it is a convention, not a language requirement.
 
-**The AI-coding wrinkle.** Spec-driven tools such as GitHub Spec Kit [5] and Kiro [6] make the written spec the input to generation. This raises the value of written intent. It also makes code cheaper, which strengthens the case for building a throwaway prototype. The evidence for these tools is vendor material.
+**Claim 3 (fact, medium-high).** Major Python tooling and guides standardise on spaces. Black normalises indentation to 4 spaces and has no tab mode [3]. Google's Python style guide also specifies spaces only [6]. I am less certain about the exact wording of the Google guide's indentation section, so check it before quoting it.
+
+**Claim 4 (interpretation, medium).** Spaces give more predictable rendering across editors, diff tools, and web views because their width does not depend on a user's tab-width setting. Tabs give each reader control over display width, which is the main accessibility argument. For Python, the first property matters more because Python's semantics depend on indentation: a file that looks aligned in one editor can look misaligned in another, and continuation-line alignment is where that bites. This is a judgement about which failure mode matters more, so treat it as contestable.
+
+**Claim 5 (fact, medium, unverified in this session).** The CPython standard library and its test suite use spaces. Check this against the CPython repository before publishing. I am reasonably confident but have not checked the current tree.
+
+**Claim 6 (value, high confidence that it is a value dispute).** The remaining disagreement is largely about taste and team convention. I know of no controlled study comparing defect rates, readability, or productivity between tab- and space-indented Python. If a writer says "research shows spaces are better," that claim is unsupported as far as I know. Low confidence that such a study does not exist, because I have not searched for one.
+
+**Strongest objection I expect from the tabs side.** Tabs let each developer set display width, which is an accessibility gain for people with low vision or unusual preferences. A fair steelman: PEP 8 is a recommendation, and a team that enforces tabs consistently with a formatter loses none of Python's correctness. My reply is that this is accepted, but it means the choice is one of local convention, not a correctness fact, and a writer should say so rather than present spaces as objectively required.
+
+**What would change my view:** evidence that a major Python project of comparable size uses tabs and reports fewer indentation-related bugs, or a controlled study showing accessibility or comprehension gains that outweigh the alignment problems.
 
 #### Codex
 
-A solo founder should usually write a short, testable account of the intended product before committing to production implementation. The evidence does not justify requiring finished documentation before any code. My proposed rule is conditional: describe the user, intended outcome, one representative interaction, and the assumption that could invalidate the project. Then choose the next activity by what it can establish. This is a recommendation under uncertainty, not an experimentally established optimum.
+Use four spaces per indentation level for new Python code. In an existing project, follow its established convention unless there is a concrete reason to migrate. This recommendation rests on Python's published style guidance and indentation semantics. It does not require claiming that spaces improve programmer intelligence, productivity, or accessibility.
 
-The strongest case for writing first is that explaining an interface forces decisions before those decisions become implementation work. Tom Preston-Werner explicitly makes that argument, while restricting advance documentation to one introductory README. His essay supports a bounded design exercise, not a complete manual [1].
+The strongest case for tabs is that an indentation character can represent structure while the reader chooses its displayed width. That is a real distinction between tabs and spaces. However, Python gives tabs a specific interpretation: during indentation processing, a tab advances to the next multiple of eight columns. A reader's preferred display width does not change that rule. The practical objection concerns files containing both tabs and spaces: the displayed alignment can differ from the indentation Python computes. The language reference documents both the expansion rule and the conditions under which inconsistent mixing raises `TabError` [1].
 
-The strongest objection to Claude's proposed middle position concerns the word “first.” Even a short document should not become a mandatory gate before an experiment. Consider a founder whose proposed product depends on an untested latency requirement. A benchmark can establish whether the requirement is achievable. A readable account of the intended behavior cannot establish that fact. This is a logical objection to a universal sequence. Whether allowing such experiments actually improves founder outcomes remains an empirical question.
+That objection has a limit. Consistent tab indentation is legal Python. It would be inaccurate to say that Python requires spaces or that every mixture of tabs and spaces is rejected. The narrower conclusion is that spaces avoid the discrepancy between configurable tab display and Python's fixed tab expansion rule.
 
-Amazon provides evidence that writing before development is an operational practice. Its account also describes customer testing, measurement, and iteration. Attributing the benefits of that combined process specifically to document order would exceed the evidence [11].
+The recommendation also has an explicit institutional basis. PEP 8 specifies four spaces per indentation level and prefers spaces, while allowing tabs to preserve consistency in code already using them. Its broader guidance places project consistency ahead of mechanical compliance with the document [4]. Thus, converting a coherent existing codebase solely to satisfy a slogan misrepresents the guidance being invoked.
 
-The strongest experimental evidence here supports explicit hypotheses and tests. Camuffo and colleagues studied 759 firms across four randomized trials and found increased idea termination and changes in pivot patterns. Their intervention does not identify the effect of documentation sequence [12].
+These are disputes about different things. Whether tabs are legal and how they expand are factual questions. Whether following the documented default outweighs adjustable display width is a practical value judgement. Whether either convention improves productivity or accessibility requires evidence beyond a style guide. My thesis is consequently specific: spaces are Python's documented default and the better recommendation for new code. Tabs remain defensible where an existing project's convention supplies a concrete reason to retain them.
 
-The factual dispute is what these sources demonstrate. The interpretive dispute is how far their lessons transfer to solo founders. The value judgment is how much delay to accept for additional clarity. A useful comparison would measure total founder time to a predefined customer or feasibility test, including document preparation and revisions. Until that comparison exists, the writer should present documentation first as a conditional technique, with explicit exceptions, rather than a proven rule.
-
-**Referee.** Round 0 opening: both debaters converge on a short, non-mandatory pre-build description rather than comprehensive documentation-first, and agree that the cited Camuffo study and Amazon process do not isolate document order. Open disagreements remain on the solo-founder transfer of README-first benefits (K3), whether demand requires prototypes or customer contact (K4), the interface-product boundary (K5), and AI spec-tool evidence (K6), plus Codex's new Agile Manifesto and latency claims (K9, K10), none yet answered. Status: 7 agreed, 6 open.
+**Referee.** Both sides agree on the language facts (consistent tabs are legal, 8-column expansion, TabError on ambiguous mixing) and on what PEP 8 says. They also agree there is no evidence of productivity or accessibility effects. The one real disagreement is K4, the weight of rendering predictability against adjustable tab width. K3, K5 and K7 are still unverified or not yet answered by the other side. Status: 3 agreed, 1 disputed, 3 open.
 
 
 ### Round 1
 
 #### Claude
 
-**K9 (Agile Manifesto): agree.** The manifesto says "while there is value in the items on the right, we value the items on the left more." That ranks working software above comprehensive documentation. It does not order the two in time. It also targets *comprehensive* documentation, which is the artifact we already agree a solo founder should not write first. A writer should not cite it as a rule for code-first. The manifesto is a priority statement, and I will not use it to support code-first sequencing. This is an interpretive point and the text settles it [3].
+**Verification pass on the open items**
 
-**K10 (latency): agree, with a limit.** The logical point holds. Prose cannot show that an untested system meets, say, a 50 ms p99. A benchmark or spike can. I accept it as a real exception to any "document first, always" rule. The limit is that it is narrow. It covers feasibility risks that can be tested numerically. Most solo-founder failures I can point to are demand failures, not feasibility failures. I have no source for that base rate. The nearest source I know is CB Insights' founder post-mortem list, which cites "no market need" as the top reason, but I have not rechecked it this turn, so treat it as unverified. K10 therefore supports "choose the test by what it can establish." It does not support a general code-first default.
+**K3 (Black and Google).** Verified in part. Google's Python style guide, Indentation section, says "Indent your code blocks with 4 spaces" and then "Never use tabs" [6]. Black's FAQ says it provides no option to change indentation style, that requests for one will not be considered, and that PEP 8 is the basis [7]. The FAQ also concedes "we recognise that using tabs is an accessibility issue as well" and points users to expand/unexpand conversion hooks. I could not confirm from the fetched Black pages the literal phrase "normalises to 4 spaces". That is widely known behaviour, but I have not sourced the wording, so I downgrade it to a claim about policy ("no tab mode, by design") rather than a quoted width.
 
-**K3: revise.** I overstated it. A solo founder loses *team* coordination but keeps three audiences: their future self after a break, early users or beta testers, and, increasingly, an AI coding agent that consumes the text as input. The last one is not coordination between humans, but it is a reader who cannot ask clarifying questions, so the README-first logic partly survives. Revised claim: "For a solo founder, README-first's benefit of unblocking other developers disappears. The benefits of forcing design decisions and of giving a reader context (future self, early users, AI agents) remain, though no study measures them." This is an interpretation, and the AI-agent part rests on vendor material [5].
+**K4 (rendering).** The claim as worded does not survive. "Spaces are more robust across editors, diffs and web views" is unsourced for diffs and web views, and it treats all tab use as one case. Split the cases:
+- Block indentation in a file that is all tabs: Python's block structure does not depend on display width, because each tab is one indentation step under the 8-column rule and the interpreter never reads the display setting. The semantic hazard is gone. Display width only changes how deep blocks look, which is the accessibility benefit.
+- Continuation-line alignment: PEP 8 asks for continuation lines to align with an opening delimiter. In a tab-indented file, aligning inside a line requires spaces after the leading tabs. Python's tokenizer ignores whitespace inside brackets, so this is legal, but it renders differently at each tab width. This is the residual rendering problem, and it is the one that still applies to consistent-tab files.
 
-**K4 (demand): maintain.** Codex has not contested it, and K10 supports it by analogy: the right next activity depends on what it can establish. A document can't establish purchase intent. Camuffo et al. is consistent with this, because their treated firms terminated more ideas after testing hypotheses [12]. Here the document's role is to make the hypothesis explicit and falsifiable. That is a defensible use, and it is not validation.
+So the rendering problem survives only for alignment, not for block structure. That is a factual claim about the tokenizer plus an interpretation about which failure matters more. The weighting of that failure against adjustable display width is a value judgement.
 
-**K5 and K6: maintain, unaddressed by Codex.** Neither has a new source. K5 stays an untested interpretation. K6 stays vendor-sourced. The writer should label both that way.
+**K5 (CPython).** Partially verified. I fetched `Lib/textwrap.py` from the main branch [8]. Its indentation is spaces only, with no tab characters in leading whitespace. That is one file, not the tree. The CPython developer guide style page returned a 404 when fetched, so I have no citation for the test suite. I withdraw the blanket claim and keep only the single-file fact.
 
-**Strongest objection to the emerging consensus (K12).** "Short, testable description first, but not a gate" risks being unfalsifiable. If the rule yields to any experiment that "can answer a question the description cannot," it excludes almost nothing, because a founder can always claim that. The consensus is therefore a heuristic and not a rule. It is useful only if it states a cost cap. I propose a concrete one: the description should take no more than about a day, which is my judgment and not an empirical figure. A founder who has spent longer has probably drifted into comprehensive documentation, which K13 says the evidence does not support. Whether one day is the right cap is a value judgment about delay, and I agree with Codex that the evidence cannot settle it.
+**K6 (absence of studies).** I did not run a search for controlled studies, so I cannot support "no controlled study shows." The judge's open ruling is correct on wording. The defensible claim is that I have not located evidence either way, and the dispute is therefore unverified rather than settled.
 
-**What the writer can state.** Facts: no controlled study exists (K1), and the pro sources bundle writing with testing (K7, K8). Interpretations: how much transfers to solo founders (K3, K5). Values: how much delay to accept (K12 cap).
+**K7 (existing-project exception).** Accepted. PEP 8 states that "Tabs should be used solely to remain consistent with code that is already indented with tabs" and that "Consistency within a project is more important" [2]. That is the document's own text, not my inference. It moved me because it means the exception is institutional, not a concession I made up. Codex's position and mine now match on new code and on existing projects.
+
+**Strongest objection, pressed.** The tabs side's best case is Black's own accessibility concession. Black chose not to offer tabs, and its FAQ acknowledges the accessibility cost and offers a workaround instead. That is a designed trade-off, not a fact that settles the matter. My remaining claim is narrower: for Python, the documented default and the tooling both point to spaces, and the one place where tabs fail (alignment) is real. Whether that alignment cost outweighs per-reader display width is a value judgement, and I do not claim to resolve it.
+
+**Classification.** Facts: the tokenizer rule, PEP 8 wording, Google's "Never use tabs", Black's no-option policy, the CPython sample. Interpretation: that alignment is the main residual rendering issue. Values: whether accessibility outweighs alignment, and how much weight project convention gets.
 
 Responses:
-- K9 — **accept**: The manifesto text ranks values ('value the items on the left more') and orders nothing in time; it also targets comprehensive documentation, which both sides already reject as a first step.
-- K10 — **accept**: Prose cannot demonstrate an untested numerical latency; it is a valid exception, though narrow, since most solo-founder risk is demand rather than feasibility (base rate unsourced).
-- K3 — **revise**: I overstated it: only the unblocking-other-developers benefit vanishes; future-self, early-user and AI-agent readers remain. Revised: For a solo founder, README-first's benefit of unblocking other developers disappears, while forcing design decisions and giving context to readers such as the future self, early users and AI agents remains, unmeasured by any study.
-- K4 — **maintain**: New argument: Camuffo's treated firms terminated more ideas, so the value lies in explicit falsifiable hypotheses tested with customers; a document only states them and cannot validate purchase intent.
-- K5 — **maintain**: Codex did not address it. It remains an untested interpretation resting on the OpenAPI design-first practice.
-- K6 — **maintain**: Codex did not address it. All evidence for spec-driven AI tools that I know of is vendor-sourced.
+- K3 — **revise**: Google's guide is verified verbatim ('Never use tabs'). Black's FAQ is verified to say it offers no indentation-style option and cites PEP 8, and it concedes an accessibility issue. I could not verify the literal '4 spaces' wording for Black from its pages, so that part is downgraded. Revised: Google's Python style guide says to indent with 4 spaces and to never use tabs, and Black's FAQ states it provides no option to change indentation style (tabs are not supported by design).
+- K4 — **revise**: The rendering problem does not apply to block indentation in files that use only tabs, because Python's block structure is independent of display width under the 8-column rule. It still applies to continuation-line alignment that uses spaces after leading tabs, which is legal but renders differently at each tab width. The weighting against adjustable display width remains a value judgement. Wording as previously stated was overbroad and unsourced for diffs and web views. Revised: In files indented only with tabs, display width does not change Python's block structure, but spaces used for continuation-line alignment after tab indentation render differently across tab-width settings; whether this outweighs reader-adjustable display width is a value judgement.
+- K5 — **revise**: I fetched Lib/textwrap.py from the CPython main branch: spaces only, no tab characters in indentation. That is one file. The developer guide page returned 404, and I did not check the test suite or the whole tree. The claim is narrowed accordingly. Revised: A sampled CPython standard library module (Lib/textwrap.py on main) indents with spaces only; the rest of the tree and the test suite are unchecked.
+- K6 — **revise**: I did not run a search for controlled studies, so I cannot support a claim that none exist. The honest statement is that no evidence was located in this round, and the dispute is unverified. Revised: I have not located a controlled study comparing tab and space indentation on defects, readability, productivity or accessibility; this is unverified because no exhaustive search was run.
+- K7 — **accept**: PEP 8 states 'Tabs should be used solely to remain consistent with code that is already indented with tabs' and 'Consistency within a project is more important.' That is the document's own text and it supports the existing-project clause as institutional guidance, not my inference.
 
 Evidence requests:
-- K10: Data showing most failed solo-founder products failed on technical feasibility rather than demand would make the latency exception broad and weaken a doc-first default.
+- K6: A controlled experiment (peer-reviewed or preprint) comparing tab and space indentation on comprehension, error rate or accessibility. Its existence would make the claim false; its absence after a proper search would support it.
+- K5: Evidence that a significant part of the CPython tree (Lib/ or Lib/test) uses tab indentation would contradict the sampled file and require narrowing the claim further.
 
 #### Codex
 
-A solo founder should write enough to define the next test, but the evidence does not establish that product documentation should precede experimental code. Two distinctions sharpen that recommendation: customer-facing text can participate in a demand test, and an API contract can describe behavior without demonstrating that behavior.
+Four spaces remain my default recommendation for new Python projects, based on documented conventions and Black compatibility. Two corrections change the supporting argument: tab-based alignment need not break when tab width changes, and accessibility has empirical evidence favoring tabs for some users.
 
-**K4 is the most consequential dispute.** Claude's strongest argument is that private prose and polite customer approval cannot establish purchase intent. That holds. The objection is that this does not establish a hierarchy in which a prototype necessarily provides stronger demand evidence. Buffer founder Joel Gascoigne reports testing a two-page product description, then adding pricing and observing plan clicks and email submissions before building the functioning product. Those actions provided evidence of interest, although no payment occurred in that test. His first paying customer arrived after launch. This is a founder's retrospective account, not a controlled comparison, but it demonstrates why “prose cannot validate demand” needs a narrower formulation: the evidence comes from customer behavior around the offer, rather than from whether the offer is expressed through prose or working software [18].
+**K3:** The original tooling claim can be restored. Black's implementation constructs indentation with `indent = "    " * self.depth`, directly establishing four spaces per level [9]. Its FAQ excludes indentation-style configuration [7]. Google's guide explicitly requires four spaces and prohibits tabs [10]. These establish tool behavior and institutional preferences, not superior human performance.
 
-**K3 and K5 concern mechanisms, not demonstrated founder outcomes.** Preston-Werner explicitly includes enabling other developers to work before implementation. A founder working alone loses that particular benefit. External readers can still review the proposed interface, but neither his essay nor the sources examined quantify the resulting benefit for solo founders [1]. OpenAPI explicitly describes service capabilities for humans and computers without requiring source access. That supports reviewing a contract before implementation. It does not make the description equivalent to the delivered service, or prove that API founders benefit more than consumer-product founders from writing first [19].
+**K4:** I reject the original claim as worded, including its assertion that rendering predictability outweighs adjustable width. Claude's strongest remaining argument is that delimiter alignment introduces a display hazard even when block indentation consistently uses tabs. That hazard exists for some layouts, but the proposed mechanism is overgeneralized. Equal tab prefixes followed by spaces preserve relative alignment across tab widths.
 
-**K6 needs updating.** Search located empirical research beyond tool documentation. An ESEM 2026 paper examines 88,052 pull requests across 119 repositories, but explicitly studies specification artifacts, mostly issue references, rather than committed SDD tool outputs. A separate preprint compares specification frameworks on generated-code determinism and automated detection metrics. Neither establishes improved solo-founder outcomes. The defensible conclusion is therefore narrower than “all evidence is vendor material”: relevant empirical research exists, but the outcome and population required for this recommendation remain untested in these sources ([20]; [21]).
+Here is a reproducible counterexample, with whitespace represented as escaped strings: `"\tresult = func(first,"` and `"\t              second)"`. Both argument names start at zero-based columns 16, 18 and 22 for tab widths 2, 4 and 8 respectively. I verified those positions using Python's `expandtabs`. Replacing the second prefix with two tabs and six spaces produces columns 10, 14 and 22, breaking alignment except at width 8. Thus the failure depends on how alignment is encoded, not merely on spaces following tabs. PEP 8 also permits hanging indentation, so delimiter alignment is optional [4].
 
-Claude's objection to K12 identifies a real problem with unrestricted exceptions, but a one-day cap does not solve it. Duration cannot distinguish useful documentation from wasteful documentation without reference to the decision it supports. My proposed operational constraint is to identify the uncertainty, observable result, and decision threshold before choosing an artifact. This is a procedural recommendation, not a proven optimum. Claude's requested failure base rate is unavailable here, and the latency counterexample does not require technical failures to predominate: it defeats mandatory sequencing, while establishing no code-first default.
+Spaces do provide invariant indentation columns under changes to tab stops. Consistent tabs preserve block relationships while allowing those columns to change. Some mixed alignment layouts break, others do not. This is a factual distinction. Which property matters more is a value judgement, and neither establishes a general ranking across editors, diffs and web views.
 
-Responses:
-- K3 — **revise**: Preston-Werner explicitly identifies enabling parallel developer work as a benefit, which does disappear when nobody else is implementing. His discussion of interface review supplies a separate mechanism involving prospective users. The magnitude of either benefit for solo founders remains unmeasured. The assertion that AI agents cannot ask clarifying questions should be removed as an unsupported universal. Revised: A solo founder loses README-first's parallel developer coordination benefit, while interface review and later reference remain possible uses whose effect on founder outcomes is unmeasured.
-- K4 — **revise**: Buffer's reported pricing-page experiment supplies a concrete counterexample to treating written offers as incapable of producing demand evidence. Clicks and email submissions measure interest, not purchases. Neither a document nor a prototype establishes purchase intent merely by existing. The dominant risk across solo founders remains unsourced. Revised: Private prose cannot establish demand, but customer behavior in response to a written offer can provide limited demand evidence before a functioning product exists.
-- K5 — **revise**: The OpenAPI specification supports the contract-review mechanism, but supplies no comparative evidence ranking product categories. An interface description also cannot demonstrate service reliability or performance. This is an interpretive boundary rather than a measured advantage. Revised: Written API contracts permit interface review without implementation, but the available evidence does not establish that documentation-first yields greater benefits for API products than for visual products.
-- K6 — **revise**: Live search found empirical publications beyond vendor documentation, so the broad vendor-only characterization cannot stand. Their measured artifacts and code metrics do not establish solo-builder business outcomes. Cheaper throwaway prototypes remain a conditional argument, not an established net effect of spec-driven tools. Revised: Empirical research on specification artifacts and specification-driven generation exists, but the sources located do not establish that spec-driven AI tools improve solo-founder outcomes.
-- K9 — **maintain**: Claude's acceptance resolves the textual dispute. An additional limitation is that a ranking of working software and comprehensive documentation cannot distinguish README-first from prototype-first, since either sequence can satisfy that ranking.
-- K10 — **maintain**: The requested prevalence evidence is unavailable here. It is unnecessary for this claim: one relevant feasibility counterexample defeats an unconditional documentation-first rule regardless of the population failure rate. It does not establish a general code-first default.
-- K12 — **revise**: Replace unrestricted exceptions with an explicit test-selection procedure: state the uncertainty, observable result, and decision threshold before selecting prose, customer contact, or a prototype. This makes compliance observable, although its comparative effectiveness remains untested. The one-day cap is an unsupported preference, and elapsed time alone does not define comprehensive documentation. Revised: Before substantial implementation, explicitly identify the next uncertainty and decision criterion, then choose an artifact or experiment capable of testing it, without requiring product documentation before experimental code.
-- K1 — **maintain**: The newly located specification studies examine repository artifacts or generated-code metrics, so they do not fill the specific solo-founder sequencing evidence gap. The publishable wording should remain that neither debater has located such a study, rather than asserting that none exists.
+**K6:** I reject the original absence claim as established knowledge. A targeted search found Pandey, Oney and Begel's CHI 2024 paper, *Towards Inclusive Source Code Readability Based on the Preferences of Programmers with Visual Impairments*. Its qualitative study involved 16 blind or visually impaired developers comparing differently formatted code snippets. The authors recommend tabs for character-level navigation [13]. This answers the accessibility evidence request with relevant empirical evidence, although it is not a controlled performance experiment establishing differences in defects or productivity. I therefore cannot remain neutral by implying there is no accessibility evidence. Its scope supports some users' navigation needs, not universal superiority.
 
-Evidence requests:
-- K5: A comparison measuring total time to validated interface decisions or customer tests across API and visual products under documentation-first and prototype-first workflows would support the proposed product-category ranking.
-- K6: An independent comparison of solo builders using spec-driven tools and an appropriate alternative, including specification time, revisions, correctness, and customer outcomes, would support a founder-specific recommendation.
-
-**Referee.** Round 1 narrowed several points: K9 and K10 are now agreed, and K3 and K4 moved toward each other on what remains of README-first and what counts as demand evidence. K6 was reopened when Codex located independent empirical research that contradicts the broad 'vendor-only' wording, which Claude has not yet answered. The main open disagreement is how to make the 'short description first' default falsifiable: a one-day cap (K14, K12) versus a decision-criterion procedure. Status: 1 agree to disagree, 8 agreed, 5 disputed.
-
-- Repetition flag on K6 (claude): Claude maintained K6 without addressing Codex's new independent sources (ESEM 2026, arXiv preprint).
-- Repetition flag on K5 (claude): Claude's K5 maintain was based on Codex not addressing it; Codex has now responded with a revision, which Claude has not answered.
-
-### Round 2
-
-#### Codex
-
-A solo founder should not treat product documentation as a prerequisite to experimental code. My revised recommendation drops the default requirement for a product description. It retains a brief written test plan: the uncertainty, observable outcome, decision threshold, and effort budget. This is a proposed procedure, not an empirically established optimum.
-
-**K12 and K14 contain Claude's strongest objection.** A rule that permits any experiment without recording its purpose can excuse almost anything retrospectively. My previous procedure lacked an explicit stopping rule. I therefore revise it: before the next deliberate experiment, record what decision its result could change and set a maximum effort budget. Stop at the budget or specified observation, whichever comes first, and record whether to proceed, abandon, or authorize a separately bounded follow-up. Observable violations include starting without those entries, exceeding the budget without reassessment, or changing the success threshold after seeing results while reporting the original test as successful. These requirements apply to writing and coding alike. No experiment receives an exemption merely because the founder calls it exploratory.
-
-That accepts Claude's demand for operational constraints without accepting a universal one-day allowance. A founder could follow a one-day documentation cap while never identifying a decision the document informs. Conversely, exceeding one day does not establish that a document is comprehensive. The choice between a fixed cap and a task-specific budget remains a procedural value judgment. Whether either improves founder outcomes is an empirical question we have not settled.
-
-**K3 requires separating usefulness from sequencing.** Future selves and early users are legitimate readers. A README can preserve an intended interface for later reference and expose it to early review. Preston-Werner explicitly presents a README as an introduction for prospective users, alongside the team coordination argument [1]. However, those readers do not establish that the README must precede the first experiment. Early users might review a description before implementation. A founder might document the interface after a spike reveals what is feasible. These are alternative sequences, and their relative outcomes remain unmeasured here.
-
-**K4 is an evidential distinction, not a disagreement about private prose.** A written offer can generate observable customer behavior. Buffer's founder reports pricing-plan clicks and email submissions before building the functioning product, followed by a paying customer after launch [18]. That is limited evidence of interest, not proof of purchase intent. Camuffo's hypothesis-testing results cannot establish that such signals carry zero information or that a working prototype is required.
-
-**K6 needs a scope correction.** Claude says I supplied no source, but both research links from my previous turn resolve. The ESEM paper explicitly studies specification artifacts rather than SDD tool adoption and reports no protective defect effect. It therefore cannot establish tool benefits [20]. The separate preprint compares SDD frameworks on generated-code metrics, not founder outcomes [21]. Neither warrants recommending documentation-first to founders. Their existence does require distinguishing research on specification practices from evidence of improved solo-founder outcomes.
-
-For the writer, the defensible answer is conditional: use advance product writing when it supports the next decision. Do not present README-first, prototype-first, or my bounded testing procedure as a proven universal sequence.
+**K5 and K7:** A checked test-suite module, `Lib/test/test_tabnanny.py`, uses spaces for its executable indentation and includes tab-containing test strings [12]. That extends Claude's sample but does not establish a tree-wide census. Tabs in fixtures must be distinguished from implementation indentation. The recommendation to preserve established project conventions remains supported by PEP 8, with demonstrated accessibility needs supplying a concrete reason to reconsider a project's default.
 
 Responses:
-- K1 — **maintain**: The checked specification studies examine repository or generated-code outcomes, not solo-founder sequencing. The publication-safe statement remains that neither debater located a direct comparison, rather than that none exists.
-- K3 — **revise**: The README essay explicitly addresses prospective users, supporting reader context beyond team coordination. Future-self reference is a plausible, unmeasured mechanism. Neither mechanism establishes a benefit from writing before the first experiment. The assertion that AI agents cannot ask clarifying questions is unsupported and unnecessary. Revised: Solo founders can use advance descriptions for early-user review and later reference, but the sources examined do not establish that these uses improve outcomes more when documentation precedes experimental code.
-- K4 — **maintain**: Buffer's reported pricing clicks and signups distinguish behavioral responses to a written offer from private writing. These are limited interest signals, not purchases. The dispute concerns their evidential weight, and the cited hypothesis-testing study does not resolve it.
-- K5 — **agree_to_disagree**: The crux remains unavailable comparative evidence. Contract review is a mechanism, while ranking API products above visual products for documentation-first benefits requires outcome evidence neither side supplies.
-- K6 — **revise**: Live checking confirms the two previously supplied papers exist. I narrow my earlier independence characterization because publication outside vendor documentation alone does not establish absence of author interests. The ESEM study explicitly excludes observed SDD tool output, and the preprint measures framework proxy outcomes. Revised: Empirical research beyond vendor documentation examines specification artifacts and SDD frameworks, but the checked studies do not establish improved solo-founder outcomes or a documentation-first sequencing advantage.
-- K7 — **maintain**: The causal identification limitation remains: a process combining writing and testing cannot identify sequencing effects without a comparison that varies sequencing separately.
-- K8 — **maintain**: Idea termination following hypothesis-testing training does not identify whether advance product documentation caused the change. The treatment and the disputed sequencing recommendation remain different interventions.
-- K9 — **maintain**: Claude's accepted interpretation permits both sequences, so the manifesto cannot discriminate between the competing recommendations.
-- K10 — **maintain**: Direct answer to the evidence request: I have no representative data showing technical feasibility causes most solo-founder failures. Such data are unnecessary to establish an exception and would not, by themselves, compare documentation-first with experiment-first outcomes.
-- K12 — **revise**: My default drops the short product description. It retains a short written test plan and adds an effort budget. This resolves the ambiguity between writing a decision criterion and writing product documentation. The recommendation is unsourced procedural judgment. Revised: Before the next deliberate experiment, record its uncertainty, observable outcome, decision threshold and effort budget, then select the artifact or experiment without requiring a prior product description.
-- K13 — **maintain**: The checked newer specification research supplies no solo-founder sequencing evidence that would justify a comprehensive-documentation prerequisite.
-- K14 — **revise**: Claude's concrete objection that my previous procedure lacked a stopping rule moves me to add a precommitted effort budget and reassessment. Violations are observable: missing advance criteria, exceeding the budget without reassessment, or retrospectively changing the threshold while claiming success. Compliance is auditable, while effectiveness remains unproven. Revised: The proposed procedure requires a precommitted effort budget and reassessment at the budget or specified observation, but neither its effectiveness nor a universal one-day cap is established by the available evidence.
+- K3 — **revise**: Black's Line.__str__ implementation explicitly multiplies a four-space string by indentation depth. This supplies the missing direct evidence for width. Google's guide and Black's FAQ verify the remaining policies. Revised: Black generates four spaces per indentation level and offers no tab indentation mode, while Google's Python style guide requires four spaces and prohibits tabs.
+- K4 — **revise**: I reject the original claim as worded. The executable counterexample in the argument shows that an identical tab prefix followed by spaces preserves delimiter alignment at widths 2, 4 and 8. Claude's revised claim still overstates the residual hazard. Revised: Spaces preserve indentation columns across tab-stop settings, while consistent tab prefixes preserve relative alignment and block relationships. Some alignment layouts with differing tab prefixes break across settings, but this is avoidable and does not establish that rendering predictability outweighs reader-adjustable width.
+- K5 — **revise**: The checked test_tabnanny.py adds a test-suite example using spaces for executable indentation. This directly answers the request with an additional sample, not evidence about a significant fraction of the tree. Tab-containing test fixtures do not contradict spaces-based implementation indentation. Revised: Checked CPython examples include a standard-library module and a test-suite module with spaces-based implementation indentation, but the blanket tree-wide claim remains unverified.
+- K6 — **revise**: I do not accept the original absence claim as established. Pandey, Oney and Begel's qualitative study of 16 blind or visually impaired developers supplies empirical accessibility evidence favoring tabs for character-level navigation. It does not establish a controlled performance advantage, and this targeted search cannot prove that no controlled comparison exists. Revised: Qualitative accessibility evidence supports tabs for some developers' navigation needs, while a controlled tab-versus-space performance comparison was not located in this targeted search.
+- K7 — **maintain**: Verified Black behavior adds a concrete compatibility reason for spaces in new projects. The accessibility study also makes the migration exception substantive: a documented participant need can justify reconsidering an established convention. This remains a recommendation based on priorities, not a measured universal optimum.
 
-#### Claude
+**Referee.** Claude verified Google's and Black's policies and narrowed the K4, K5 and K6 wording. Codex supplied Black's source for four-space output, a counterexample showing that consistent tab prefixes preserve alignment, a second CPython sample, and a CHI 2024 accessibility study. K3, K5 and K7 now have common ground. K4 remains a mix of a narrowed factual question and a value weighting. K6 is open because Claude has not answered the new study and no performance-study search was run. Status: 5 agreed, 1 disputed, 1 open.
 
-**Where the debate has converged.** Both sides agree that no direct comparison exists (K1), that comprehensive documentation first is unsupported (K13), and that the famous pro sources bundle writing with testing (K7, K8). The remaining disputes are narrow.
-
-**K4 (Buffer).** Yes, a pricing-page click counts as demand evidence in my framing. It is weak evidence. It is behavioural and comes from strangers, so it beats private prose. I concede my earlier wording was too strong. Revised: private prose cannot validate demand, but a written offer shown to real customers can yield weak behavioural signals. Two limits remain. First, the evidence comes from the exposed offer plus a landing page, a deployed artifact. It is not the founder's internal design document. Second, Buffer's own account is a single success story, so it cannot show the signals predicted payment. The step that mattered was customer contact, not documentation order. Codex and I now differ little here. The sequencing question is whether a landing page counts as "documentation." If it does, the term stops separating the two camps.
-
-**K6.** I revise to Codex's wording. Independent research on specification artifacts exists, but it covers non-founder populations and proxy outcomes. My claim that evidence was "vendor-sourced" was too broad. Revised: no independent evidence exists on solo-founder outcomes from spec-first AI workflows. Codex's own ESEM source reports that specification artifacts do not reduce defects. On the evidence cited, that result leans against the pro side. I could not re-verify the ESEM or arXiv sources this turn, so I rely on Codex's descriptions of them. The "cheaper code lowers prototype cost" point is my inference and is unsourced.
-
-**K5.** On contract review, Codex's mechanism is fair: a written API contract can be reviewed before implementation. That is a plausible reason documentation-first suits interface-as-text products. Neither side has comparative outcome data, so I agree to disagree. The writer should present it as a mechanism-based hypothesis.
-
-**K3.** I accept Codex's revision. Reader benefits exist (early users, future self), but nothing shows they require the README to precede the first experiment. I drop my claim that agents "cannot ask clarifying questions" as unsupported.
-
-**K12/K14.** Codex's objection holds. A one-day cap does not track the decision. I propose a cap tied to the decision threshold: the budget should be a fraction of the cost of the cheapest experiment that could falsify the same hypothesis. If writing the description costs more than a landing page or a spike would, the founder should run the test instead. Codex's budget-plus-reassessment procedure is compatible with this. Two points remain open. Codex drops the product description entirely and keeps only a test plan. That is a real difference. A test plan names the uncertainty but does not make the founder specify the product's behaviour. Specifying behaviour is what Preston-Werner and Amazon claim forces design decisions. No evidence settles this. It is a value and procedure judgment.
-
-**Remaining crux for the writer.** Facts: no direct study exists, and the cited spec research is not about founders. Interpretations: how much README-first transfers to solo work, and whether a landing page is "documentation." Values: how much delay is acceptable, and whether a product description or a test plan is the better default. Both procedures are unvalidated.
-
-Responses:
-- K3 — **accept**: Codex's point that Preston-Werner addresses prospective users, and that reader benefits do not show the README must precede experiments, is correct. I withdraw the agent claim.
-- K4 — **revise**: A pricing click counts as weak behavioural evidence. Private prose cannot validate demand, but a written offer shown to customers can yield limited signals. This is a landing page, not an internal document, and Buffer is one anecdote. Revised: Private prose cannot establish demand; a written offer exposed to real customers yields weak behavioural signals short of purchase, and the signal comes from customer exposure rather than documentation order.
-- K5 — **agree_to_disagree**: Contract review is a plausible mechanism, but there is no comparative outcome evidence across product categories. The ranking is interpretation.
-- K6 — **revise**: Independent research on specification artifacts exists, so a vendor-only claim is too broad. None measures solo-founder outcomes. I rely on Codex's description of the studies without having re-verified them. Revised: No independent evidence located measures solo-founder outcomes from spec-first or spec-driven workflows; the research that exists studies other populations and proxy outcomes.
-- K12 — **revise**: I accept a decision-linked test plan as a necessary component. I still favour a short behavioural description as the default because it forces design choices. This is a value judgment with no evidence either way. Revised: Before building, record the uncertainty, threshold and budget; also write a short description of intended behaviour unless a cheaper experiment answers the question.
-- K14 — **revise**: A fixed one-day cap is not tied to the decision. I propose a cap relative to the cost of the cheapest experiment that could answer the same question. Revised: The writing budget should not exceed the cost of the cheapest experiment that could test the same hypothesis; one day is a rough default only.
-
-Evidence requests:
-- K12: Any comparison showing that founders who recorded only a test plan reached good decisions as often as those who also wrote a behavioural description.
-
-**Referee.** Round 2 narrowed the debate considerably: K3, K4 and K6 now have revised wording that both debaters substantively hold, and Claude explicitly conceded K3's reader-benefit point. The remaining disagreements (K12 and K14) are value and procedure judgments about the default writing budget and whether a short product description belongs in it, which neither side can settle with current evidence. K5 remains agree-to-disagree on comparative evidence. Status: 3 agree to disagree, 10 agreed, 1 conceded.
-
-- Repetition flag on K7 (codex): Maintained without new argument or evidence; restates the causal-identification limit already agreed.
-- Repetition flag on K8 (codex): Maintained without new argument; restates that the study does not test sequencing.
-- Repetition flag on K9 (codex): Maintained with a restated interpretation rather than new argument; the claim is already agreed in substance.
 
 ## References
 
-1. Readme Driven Development. <https://tom.preston-werner.com/2010/08/23/readme-driven-development.html> — Practitioner argument for writing the README first; not empirical.
-2. Working Backwards: PR/FAQ concept. <https://www.workingbackwards.com/concepts/working-backwards-pr-faq> — Describes the PR/FAQ artifact; it's from the authors' own company, so it is promotional.
-3. Manifesto for Agile Software Development. <https://agilemanifesto.org> — States the value preference; it doesn't prohibit lightweight docs.
-4. A Rational Design Process: How and Why to Fake It (IEEE TSE, 1986). <https://ieeexplore.ieee.org/document/6312940> — Supports idealized documentation as a design discipline; it is about large systems, not solo founders. I did not verify the IEEE URL this session.
-5. GitHub Spec Kit. <https://github.com/github/spec-kit> — Shows tooling that treats specs as the source of truth for AI-generated code.
-6. Kiro. <https://kiro.dev> — Vendor product built on spec-first workflow.
-7. OpenAPI Initiative learning hub. <https://learn.openapis.org> — General guidance on specification-driven API work; I did not verify a specific design-first page.
-8. Royce, Managing the Development of Large Software Systems (1970). <https://www.praxisframework.org/files/royce1970.pdf> — Source for the waterfall origin and the author's own warnings; the hosting URL is unverified.
-9. Getting Real (37signals/Basecamp). <https://basecamp.com/books/getting-real> — Argues against functional specs and for interface-first design.
-10. Do Things that Don't Scale. <https://paulgraham.com/ds.html> — Supports early user contact over up-front planning; does not mention documentation specifically.
-11. The Secrets to Project Management at AWS. <https://d1.awsstatic.com/executive-insights/en_US/product-management-ebook.pdf> — Documents Amazon's stated process, without isolating its causal effect or testing its applicability to solo founders.
-12. A scientific approach to entrepreneurial decision-making: Large-scale replication and extension. <https://onlinelibrary.wiley.com/doi/10.1002/smj.3580> — Provides causal evidence about training in scientific entrepreneurial decision-making, not the ordering of documentation and coding.
-13. What influences the speed of prototyping? An empirical investigation of twenty software startups. <https://arxiv.org/abs/1712.00674> — Offers observational evidence about startup prototyping and learning, without a documentation-first comparison or a solo-founder estimate.
-14. Getting Real, chapter 59: There's Nothing Functional about a Functional Spec. <https://basecamp.com/gettingreal/getting-real.pdf> — Establishes a competing practitioner position against extensive advance specifications, rather than experimental proof against short README drafts.
-15. Paper Prototyping: Getting User Data Before You Code. <https://www.nngroup.com/articles/paper-prototyping> — Provides practitioner experience supporting early prototype testing, but its broad cost multipliers are estimates rather than solo-founder trial results.
-16. Documentation Practices in Agile Software Development: A Systematic Literature Review. <https://arxiv.org/abs/2304.07482> — Shows the breadth and fragmentation of agile documentation research, but its reported results do not establish a documentation-first advantage.
-17. Swagger RESTful API Documentation Specification, version 1.2. <https://docs.swagger.io/spec.html> — Establishes that an interface document can serve executable tooling purposes, without proving that authoring it first improves startup outcomes.
-18. Idea to Paying Customers in 7 Weeks: How We Did It. <https://buffer.com/resources/idea-to-paying-customers-in-7-weeks-how-we-did-it> — Gascoigne describes collecting email submissions and pricing-plan clicks before building the functioning product.
-19. OpenAPI Specification. <https://spec.openapis.org/oas/latest.html> — Defines a machine-readable and human-readable description of HTTP service capabilities independent of source-code access.
-20. Specification Artifacts in Open-Source Pull Request Workflows Do Not Reduce Defects. <https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ESEM.2026.84> — Studies specification artifacts across open-source pull requests and explicitly distinguishes them from SDD tool output.
-21. Citation Discipline in Spec-Driven Development. <https://arxiv.org/abs/2606.30689> — Reports controlled comparisons of framework conditions on generated-code determinism and automated detection metrics, not founder outcomes.
+1. Python Language Reference: Indentation. <https://docs.python.org/3/reference/lexical_analysis.html#indentation> — Defines tab-stop handling and states that inconsistent tab/space use is an error.
+2. PEP 8 – Style Guide for Python Code. <https://peps.python.org/pep-0008> — Contains the spaces-preferred and 4-space recommendations.
+3. Black documentation. <https://black.readthedocs.io/en/stable> — Official docs for the formatter; check current options before quoting.
+4. PEP 8: Indentation. <https://peps.python.org/pep-0008/#indentation> — Specifies four spaces per level and prefers spaces over tabs.
+5. PEP 8: Tabs or Spaces?. <https://peps.python.org/pep-0008/#tabs-or-spaces> — Allows tabs for consistency with code already indented using tabs.
+6. Google Python Style Guide. <https://google.github.io/styleguide/pyguide.html> — Indentation section: 'Indent your code blocks with 4 spaces' and 'Never use tabs.'
+7. Black FAQ: Why spaces? I prefer tabs. <https://black.readthedocs.io/en/stable/faq.html> — Black provides no indentation-style option, cites PEP 8, and acknowledges tabs as an accessibility issue.
+8. CPython Lib/textwrap.py (main). <https://raw.githubusercontent.com/python/cpython/main/Lib/textwrap.py> — Leading indentation uses spaces only, with 4-space and 8-space levels.
+9. Black indentation implementation. <https://raw.githubusercontent.com/psf/black/main/src/black/lines.py> — Line.__str__ constructs indentation from a four-space string multiplied by depth.
+10. Google Python Style Guide: Indentation. <https://google.github.io/styleguide/pyguide.html#s3.4-indentation> — Google requires four spaces and prohibits tabs.
+11. Python documentation: str.expandtabs. <https://docs.python.org/3/library/stdtypes.html#str.expandtabs> — Documents configurable tab-stop expansion used in the reproducible alignment check.
+12. CPython test_tabnanny.py. <https://raw.githubusercontent.com/python/cpython/main/Lib/test/test_tabnanny.py> — Shows spaces-based executable indentation alongside tab-containing source-code fixtures.
+13. Towards Inclusive Source Code Readability Based on the Preferences of Programmers with Visual Impairments. <https://from.so/static/cb9b08b836c39422e8a59f4736326f1c/chi24_617_TAPS_a20eff5b9d.pdf> — Reports a qualitative study with 16 developers and recommends tabs for character-level navigation.
+14. https://black.readthedocs.io. <https://black.readthedocs.io>
+15. https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html. <https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html>
 
 ---
-_Generated 2026-10-20 16:45 by debate._
+_Generated 2026-10-21 00:15 by debate._
