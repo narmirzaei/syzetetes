@@ -117,3 +117,18 @@ def test_wizard_pause_menu_zero_means_never_and_rejects_bad(tmp_path):
     assert out == [] and any("use numbers" in m for m in said)
     answers = iter(["9", "open >= 1"])
     assert sp.pause_menu(lambda label, default="", **k: next(answers), said.append, []) == ["custom:open >= 1"]
+
+
+def test_spec_files_are_confined_to_the_spec_folder(tmp_path):
+    """A spec may come from someone else: it must not be able to read files outside its own folder."""
+    (tmp_path / "ok.md").write_text("fine")
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.txt"
+    outside.write_text("secret")
+    assert "fine" in sp.inputs({"context_files": ["ok.md"]}, tmp_path)["context"]
+    for bad in ["~/.ssh/id_rsa", str(outside), f"../{outside.name}"]:
+        with pytest.raises(SystemExit):
+            sp.inputs({"context_files": [bad]}, tmp_path)
+        with pytest.raises(SystemExit):
+            sp.inputs({"sources": [bad]}, tmp_path)
+    with pytest.raises(FileNotFoundError):
+        sp.inputs({"context_files": ["missing.md"]}, tmp_path)

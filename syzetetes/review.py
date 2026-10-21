@@ -17,7 +17,9 @@ from .runs import RunFiles
 
 
 def render_review(state: dict) -> str:
-    data = json.dumps(_slim(state), ensure_ascii=False).replace("</", "<\\/")
+    # every "<" is escaped so neither "</script>" nor "<!--" can end or re-open the script element
+    data = (json.dumps(_slim(state), ensure_ascii=False)
+            .replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
     return TEMPLATE.replace("__DATA__", data)
 
 
@@ -48,6 +50,7 @@ TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Syzetetes review</title>
 <style>
@@ -158,8 +161,9 @@ const COLOR = {agreed:"var(--agreed)",conceded:"var(--conceded)",disputed:"var(-
 const LABEL = {agreed:"agreed",conceded:"conceded",disputed:"disputed",agree_to_disagree:"agree to disagree",open:"open"};
 const NAME = {claude:"Claude",codex:"Codex",both:"both"};
 const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const safeUrl = u => /^https?:\/\//i.test(String(u??"")) ? u : "#";
 const md = s => esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(https?:\/\/[^\s)<\]]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
-const srcList = srcs => srcs && srcs.length ? `<ul class="srcs">${srcs.map(s=>`<li><a href="${esc(s.url||s)}" target="_blank" rel="noopener">${esc(s.title||s.url||s)}</a>${s.note?": "+esc(s.note):""}</li>`).join("")}</ul>` : "";
+const srcList = srcs => srcs && srcs.length ? `<ul class="srcs">${srcs.map(s=>`<li><a href="${esc(safeUrl(s.url||s))}" target="_blank" rel="noopener">${esc(s.title||s.url||s)}</a>${s.note?": "+esc(s.note):""}</li>`).join("")}</ul>` : "";
 const tag = st => `<span class="tag" style="--c:${COLOR[st]||'var(--open)'}">${LABEL[st]||st}</span>`;
 const pct = x => Math.round(x*100)+"%";
 function judgeMd(j){
@@ -220,12 +224,13 @@ function buildGrid(){
   const g = document.getElementById("grid");
   const ids = claimIds.filter(id => !onlyMoved || moved(id));
   let h = `<tr><th>Claim</th>${rounds.map(r=>`<th class="r" data-r="${r.round}" title="Round ${r.round}">${r.round===0?"Open":"R"+r.round}</th>`).join("")}<th>Verdict</th></tr>`;
-  for (const id of ids) {
-    const fc = finalClaim[id] || Object.values(claimAt[id]).pop();
-    h += `<tr><td class="claim" data-id="${id}"><small>${id} · ${NAME[fc.origin]||fc.origin}</small><div class="txt" title="${esc(fc.claim)}">${esc(fc.claim)}</div></td>`;
+  for (const rawId of ids) {
+    const id = esc(rawId);
+    const fc = finalClaim[rawId] || Object.values(claimAt[rawId]).pop();
+    h += `<tr><td class="claim" data-id="${id}"><small>${id} · ${NAME[fc.origin]||esc(fc.origin)}</small><div class="txt" title="${esc(fc.claim)}">${esc(fc.claim)}</div></td>`;
     let prev = null;
     for (const r of rounds) {
-      const c = claimAt[id][r.round];
+      const c = claimAt[rawId][r.round];
       if (!c) { h += `<td class="cell none"></td>`; continue; }
       const ch = prev && prev !== c.status ? " changed" : "";
       const conf = c.judge ? c.judge.status_confidence : null;
@@ -234,7 +239,7 @@ function buildGrid(){
       h += `<td class="cell${ch}${low}${con}" style="--c:${COLOR[c.status]}${conf!==null?`;opacity:${0.45+0.55*conf}`:""}" data-id="${id}" data-r="${r.round}" title="${id} after round ${r.round}: ${LABEL[c.status]}${conf!==null?` (judge confidence ${conf.toFixed(2)})`:""}">${c.status==="agree_to_disagree"?"ATD":c.status.slice(0,3)}</td>`;
       prev = c.status;
     }
-    const v = verdicts[id];
+    const v = verdicts[rawId];
     h += `<td class="cell verdict" data-id="${id}" data-r="verdict" title="${v?esc(v.headline):"no verdict"}">${v?"✓":"–"}</td></tr>`;
   }
   g.innerHTML = h;
@@ -293,10 +298,10 @@ function responsesFor(id, r){
   return out.join("");
 }
 function showCell(id, rn){
-  select(`td.cell[data-id="${id}"][data-r="${rn}"]`);
+  select(`td.cell[data-id="${CSS.escape(id)}"][data-r="${rn}"]`);
   const r = rounds.find(x=>x.round===rn), c = claimAt[id][rn];
   const prevRound = rounds.filter(x=>x.round<rn).pop(); const pc = prevRound && claimAt[id][prevRound.round];
-  side.innerHTML = `<h2>${id} after ${rn===0?"the openings":"round "+rn}</h2>
+  side.innerHTML = `<h2>${esc(id)} after ${rn===0?"the openings":"round "+rn}</h2>
     <p>${tag(c.status)}${pc&&pc.status!==c.status?` <span class="quiet">was ${LABEL[pc.status]}</span>`:""} <span class="quiet">· origin ${NAME[c.origin]}</span></p>
     <div class="md"><b>${esc(c.claim)}</b></div>
     ${pc&&pc.claim!==c.claim?`<div class="quiet">Previously worded: ${esc(pc.claim)}</div>`:""}
@@ -307,13 +312,13 @@ function showCell(id, rn){
     ${srcList(c.sources)}
     <h3 style="margin-top:16px">What was said about it this round</h3>
     ${responsesFor(id, r) || `<p class="quiet">Neither side addressed it directly this round.</p>`}
-    <p style="margin-top:12px"><button onclick="showClaim('${id}')">Full history of ${id}</button> <button onclick="showRound(${rn})">Whole round ${rn}</button></p>`;
+    <p style="margin-top:12px"><button data-id="${esc(id)}" onclick="showClaim(this.dataset.id)">Full history of ${esc(id)}</button> <button onclick="showRound(${rn})">Whole round ${rn}</button></p>`;
   side.scrollTop = 0;
 }
 function showClaim(id){
-  select(`td.claim[data-id="${id}"]`);
+  select(`td.claim[data-id="${CSS.escape(id)}"]`);
   const v = verdicts[id];
-  let h = `<h2>${id} · history</h2>`;
+  let h = `<h2>${esc(id)} · history</h2>`;
   if (v) h += `<div class="md"><b>${esc(v.headline)}</b></div><div class="md">${md(v.explanation)}</div>`;
   let prev = null;
   for (const r of rounds) {
@@ -324,7 +329,7 @@ function showClaim(id){
       ${c.crux?`<div class="quiet">Crux: ${esc(c.crux)}</div>`:""}
       ${c.judge?`<div class="quiet">Judge: ${c.judge.contested?`<b>disagrees, rules ${LABEL[c.judge.status]||c.judge.status}</b>`:"agrees"} (${c.judge.status_confidence.toFixed(2)}), lean ${esc(c.judge.lean)} (${c.judge.lean_confidence.toFixed(2)}), moved ${esc(c.judge.moved)}</div>`:""}
       ${responsesFor(id, r)}
-      <p><button onclick="showCell('${id}',${r.round})">Positions after round ${r.round}</button></p></div>`;
+      <p><button data-id="${esc(id)}" data-r="${r.round}" onclick="showCell(this.dataset.id,+this.dataset.r)">Positions after round ${r.round}</button></p></div>`;
     prev = c;
   }
   side.innerHTML = h; side.scrollTop = 0;
@@ -337,7 +342,7 @@ function showRound(rn){
   for (const w of who) {
     const t = r.turns?.[w]; if (!t) continue;
     h += `<div class="block"><details ${rn===0?"":"open"}><summary><span class="who ${w}">${NAME[w]}</span>${t.nothing_new?' <span class="quiet">(nothing new)</span>':""}</summary><div class="md">${md(t.argument)}</div></details>
-      ${t.responses?.length?`<div class="quiet">Stances: ${t.responses.map(x=>`<a href="#" onclick="showCell('${x.claim_id}',${rn});return false">${x.claim_id}</a> ${esc(x.stance.replace("_"," "))}`).join(" · ")}</div>`:""}
+      ${t.responses?.length?`<div class="quiet">Stances: ${t.responses.map(x=>`<a href="#" data-id="${esc(x.claim_id)}" data-r="${rn}" onclick="showCell(this.dataset.id,+this.dataset.r);return false">${esc(x.claim_id)}</a> ${esc(x.stance.replace("_"," "))}`).join(" · ")}</div>`:""}
       ${t.new_claims?.length?`<div class="quiet">New claims: ${t.new_claims.length}</div>`:""}</div>`;
   }
   const nudges = ["claude","codex"].filter(w=>r.ledger["nudge_"+w]).map(w=>`<div><span class="who ${w}">${NAME[w]}</span>: ${esc(r.ledger["nudge_"+w])}</div>`).join("");

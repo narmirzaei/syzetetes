@@ -14,6 +14,8 @@ Any command that takes a run accepts either the code (`D0001`) or a path to the 
 """
 from __future__ import annotations
 
+import logging
+
 import json
 import re
 from dataclasses import dataclass
@@ -102,7 +104,18 @@ def list_runs(out_dir: Path) -> list[RunFiles]:
     return out
 
 
+log = logging.getLogger("syzetetes")
+
 MAX_SOURCE_CHARS = 40_000
+
+
+def display_path(p: Path) -> str:
+    """How a local path is shown in reports and specs: relative to the current directory when it is
+    inside it, so a shared report does not reveal the author's home directory layout."""
+    try:
+        return str(p.resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return str(p)
 
 
 def load_sources(refs: list[str]) -> list[dict]:
@@ -118,7 +131,8 @@ def load_sources(refs: list[str]) -> list[dict]:
         text = p.read_text(errors="replace")
         if len(text) > MAX_SOURCE_CHARS:
             text = text[:MAX_SOURCE_CHARS] + f"\n[... truncated at {MAX_SOURCE_CHARS} characters]"
-        out.append({"ref": str(p), "kind": "file", "text": text})
+        log.info("source file: %s (%d chars)", p, len(text))
+        out.append({"ref": display_path(p), "kind": "file", "text": text})
     return out
 
 

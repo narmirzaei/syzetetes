@@ -5,6 +5,8 @@ State is written to <run_dir>/<code>.json after every step so a run can be resum
 """
 from __future__ import annotations
 
+import ast
+
 import json
 import logging
 import re
@@ -22,7 +24,7 @@ from .report import render_report
 from .review import write_review
 from .runs import RunFiles, load_state, new_run, rename_slug, resolve
 from .spec import effective_spec
-from .ui import progress
+from .ui import clean, progress
 
 log = logging.getLogger("syzetetes")
 
@@ -40,7 +42,7 @@ def console_checkpoint(question: str, options: list[str]) -> str:
 
 def _console_checkpoint(question: str, options: list[str]) -> str:
     print("\n" + "=" * 78 + "\nHUMAN CHECKPOINT\n" + "=" * 78)
-    print(question)
+    print(clean(question))
     print("\nOptions: " + " | ".join(options))
     print("  opinion: <text>   your view; the debaters must weigh it but may disagree")
     print("  fact: <text>      binding; both debaters treat it as true from here on")
@@ -57,6 +59,48 @@ def _console_checkpoint(question: str, options: list[str]) -> str:
 def unattended_checkpoint(question: str, options: list[str]) -> str:
     log.info("unattended: auto-continuing past checkpoint: %s", question[:200])
     return "continue"
+
+
+_SAFE_BIN = {ast.Add: lambda a, b: a + b, ast.Sub: lambda a, b: a - b, ast.Mult: lambda a, b: a * b,
+             ast.Div: lambda a, b: a / b, ast.FloorDiv: lambda a, b: a // b, ast.Mod: lambda a, b: a % b}
+_SAFE_CMP = {ast.Eq: lambda a, b: a == b, ast.NotEq: lambda a, b: a != b, ast.Lt: lambda a, b: a < b,
+             ast.LtE: lambda a, b: a <= b, ast.Gt: lambda a, b: a > b, ast.GtE: lambda a, b: a >= b}
+
+
+def safe_eval(expr: str, names: dict) -> bool:
+    """Evaluate a `custom:` pause expression over the ledger counts without Python's eval: only numbers,
+    the given names, comparisons, `and`/`or`/`not`, unary minus, parentheses and + - * / // %.
+    A spec file is data; it must never be able to run code."""
+    def ev(n):
+        if isinstance(n, ast.Expression):
+            return ev(n.body)
+        if isinstance(n, ast.Constant) and isinstance(n.value, (int, float, bool)):
+            return n.value
+        if isinstance(n, ast.Name):
+            if n.id not in names:
+                raise NameError(f"unknown name {n.id!r}; known: {', '.join(sorted(names))}")
+            return names[n.id]
+        if isinstance(n, ast.BoolOp):
+            vals = (ev(v) for v in n.values)
+            return all(vals) if isinstance(n.op, ast.And) else any(vals)
+        if isinstance(n, ast.UnaryOp) and isinstance(n.op, ast.Not):
+            return not ev(n.operand)
+        if isinstance(n, ast.UnaryOp) and isinstance(n.op, ast.USub):
+            return -ev(n.operand)
+        if isinstance(n, ast.BinOp) and type(n.op) in _SAFE_BIN:
+            return _SAFE_BIN[type(n.op)](ev(n.left), ev(n.right))
+        if isinstance(n, ast.Compare):
+            left = ev(n.left)
+            for op, comp in zip(n.ops, n.comparators):
+                right = ev(comp)
+                if type(op) not in _SAFE_CMP:
+                    raise ValueError(f"comparison not allowed in a pause expression: {type(op).__name__}")
+                if not _SAFE_CMP[type(op)](left, right):
+                    return False
+                left = right
+            return True
+        raise ValueError(f"not allowed in a pause expression: {ast.dump(n)[:60]}")
+    return bool(ev(ast.parse(expr, mode="eval")))
 
 
 class Debate:
@@ -130,7 +174,8 @@ class Debate:
         redoes the research too, since the briefings must start from them."""
         src_files = resolve(str(src), Path(Config().apply_overrides(cfg_overrides).out_dir))
         old = load_state(src_files)
-        cfg = Config().apply_overrides(old["config"]).apply_overrides(cfg_overrides)
+        inherited = {k: v for k, v in old["config"].items() if k != "out_dir"}   # a foreign run must not pick where this one is written
+        cfg = Config().apply_overrides(inherited).apply_overrides(cfg_overrides)
         files = rename_slug(files, old["topic"]) if files else new_run(Path(cfg.out_dir), old["topic"])
         d = cls(files, cfg, **kw)
         if sources:
@@ -397,7 +442,7 @@ class Debate:
             elif t.startswith("custom:"):
                 expr = t[7:]
                 try:
-                    if eval(expr, {"__builtins__": {}}, names):
+                    if safe_eval(expr, names):
                         out.append(f"Your condition `{expr}` is true ({names}).")
                 except Exception as e:  # a bad expression must not kill a long run
                     log.warning("pause_on custom %r failed: %s", expr, e)

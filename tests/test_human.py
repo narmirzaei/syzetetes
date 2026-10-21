@@ -105,3 +105,22 @@ def test_sources_flow_to_prompts_and_report(tmp_path):
     d2 = Debate.derive(d.dir, {"out_dir": str(tmp_path)}, keep_rounds=1, agents=agents,
                        sources=load_sources(["https://example.org/y"]))
     assert d2.state["phase"] == "research" and d2.state["memos"] == {} and len(d2.state["sources"]) == 3
+
+
+def test_custom_pause_expression_cannot_run_code():
+    from syzetetes.engine import safe_eval
+    names = {"round": 2, "disputed": 1, "open": 0, "total": 3, "unchanged": 0}
+    assert safe_eval("disputed >= 1 and round >= 2", names)
+    assert not safe_eval("not (open == 0) or total - disputed < 1", names)
+    assert safe_eval("-disputed < 0 and 1 <= round <= 3", names)
+    for bad in ["().__class__.__base__.__subclasses__()", "__import__('os').system('true')",
+                "round.__class__", "(lambda: 1)()", "[1 for _ in [1]]", "'a'", "nope > 1"]:
+        with pytest.raises((ValueError, NameError, SyntaxError)):
+            safe_eval(bad, names)
+
+
+def test_review_template_escapes_model_text():
+    """Claim ids and names come from the models; the page must never interpolate them raw into HTML."""
+    from syzetetes.review import TEMPLATE
+    assert "const id = esc(rawId);" in TEMPLATE and "CSS.escape(id)" in TEMPLATE
+    assert "onclick=\"showCell('${id}'" not in TEMPLATE

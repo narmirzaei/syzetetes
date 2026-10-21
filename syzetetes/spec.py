@@ -8,6 +8,8 @@ The effective spec is saved into the run folder as <code>-00-spec.toml so a run 
 """
 from __future__ import annotations
 
+import logging
+
 import json
 import tomllib
 from pathlib import Path
@@ -25,6 +27,9 @@ LEGACY_MODEL_KEYS = ("scribe",)
 DEBATE_KEYS = ("max_rounds", "stable_rounds", "research", "pause_on", "out_dir", "timeout_s", "retries")
 LEGACY_DEBATE_KEYS = ("pause", "pause_when")
 RERUN_KEYS = ("from", "keep_rounds", "redo_openings")
+
+
+log = logging.getLogger("syzetetes")
 
 
 def template(v: dict | None = None) -> str:
@@ -51,7 +56,7 @@ topic = {j(c["topic"])}                       # required. The question or propos
 note = {j(c["note"])}                        # short inline context, e.g. who you are writing for and why
 context_files = {lst(c["context_files"])}               # files whose text is given to both sides as context, e.g. ["notes.md"]
 sources = {lst(c["sources"])}                     # URLs or local files both sides must read, cite and check
-                                 # e.g. ["https://example.org/paper", "~/papers/jones-2022.txt"]
+                                 # e.g. ["https://example.org/paper", "papers/jones-2022.txt"]; local files must sit inside this folder
 opinions = {lst(c["opinions"])}                    # your views, NOT binding: the debaters must engage with them, may disagree
                                  # e.g. ["I suspect pensions are the real issue, not fertility."]
 facts = {lst(c["facts"])}                       # binding: treated as true for this debate
@@ -230,15 +235,37 @@ def config_overrides(spec: dict) -> dict:
     return {**spec.get("models", {}), **spec.get("debate", {})}
 
 
+def local_file(base: Path, ref: str, what: str) -> Path:
+    """A file named in a spec must live inside the spec's folder. A spec is data that may come from
+    someone else; it must not be able to read ~/.ssh or ./.env.local into a prompt. Absolute paths and
+    `~` are rejected; `..` must not escape the folder. (CLI flags are the user's own and are not confined.)"""
+    if ref.startswith("~") or Path(ref).is_absolute():
+        raise SystemExit(f"error: {what} {ref!r}: a spec may only name files inside its own folder "
+                         f"({base}); pass files elsewhere with --context / --source")
+    p = (base / ref).resolve()
+    if not p.is_relative_to(base.resolve()):
+        raise SystemExit(f"error: {what} {ref!r} escapes the spec's folder ({base})")
+    if not p.is_file():
+        raise FileNotFoundError(f"{what} {ref}: no such file in {base}")
+    return p
+
+
 def inputs(spec: dict, base: Path) -> dict:
-    """topic, context, sources, opinions, facts; file paths resolve relative to the spec file."""
+    """topic, context, sources, opinions, facts; file paths resolve relative to the spec file and must stay
+    inside its folder (see local_file). Context files are capped like sources."""
+    from .runs import MAX_SOURCE_CHARS
     parts = [spec.get("note", "")]
     for f in spec.get("context_files", []):
-        parts.append((base / Path(f).expanduser()).read_text())
+        p = local_file(base, f, "context_files entry")
+        text = p.read_text(errors="replace")
+        if len(text) > MAX_SOURCE_CHARS:
+            text = text[:MAX_SOURCE_CHARS] + f"\n[... truncated at {MAX_SOURCE_CHARS} characters]"
+        log.info("context file: %s (%d chars)", p, len(text))
+        parts.append(text)
     return {
         "topic": spec.get("topic", ""),
         "context": "\n\n".join(p.strip() for p in parts if p and p.strip()),
-        "sources": [s if s.startswith(("http://", "https://")) else str(base / Path(s).expanduser())
+        "sources": [s if s.startswith(("http://", "https://")) else str(local_file(base, s, "source"))
                     for s in spec.get("sources", [])],
         "opinions": list(spec.get("opinions", [])),
         "facts": list(spec.get("facts", [])),

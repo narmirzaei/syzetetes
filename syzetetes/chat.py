@@ -13,6 +13,7 @@ import sys
 from datetime import datetime
 
 from .agents import Agent, make_agent
+from .ui import clean
 from .runs import RunFiles
 
 CHAT_MODEL = "haiku"
@@ -101,15 +102,15 @@ def repl(files: RunFiles, agent: Agent | None = None) -> int:
             return 0
         out = chat.ask(q)
         print()
-        print(out["answer"])
+        print(clean(out["answer"]))
         if not out["covered"]:
             print("\n(The debate does not cover this.)")
         for e in out["evidence"]:
-            print(f"\n  > {e}")
+            print(f"\n  > {clean(e)}")
         print()
 
 
 def one_shot(files: RunFiles, question: str, agent: Agent | None = None) -> int:
     out = Chat(files, agent).ask(question)
-    print(json.dumps(out, indent=1, ensure_ascii=False) if not sys.stdout.isatty() else out["answer"])
+    print(json.dumps(out, indent=1, ensure_ascii=False) if not sys.stdout.isatty() else clean(out["answer"]))
     return 0

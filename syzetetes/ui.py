@@ -7,6 +7,7 @@ Active only when stderr is a terminal; otherwise everything degrades to plain lo
 from __future__ import annotations
 
 import logging
+import re
 import sys
 import threading
 import time
@@ -17,6 +18,14 @@ STATUS_COLORS = {"agreed": "\033[32m", "conceded": "\033[35m", "agree_to_disagre
                  "disputed": "\033[31m", "open": "\033[90m"}
 STATUS_ORDER = ("agreed", "conceded", "agree_to_disagree", "disputed", "open")
 RESET, DIM, BOLD = "\033[0m", "\033[2m", "\033[1m"
+_CONTROL = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|[\x00-\x08\x0b-\x1f\x7f]")
+
+
+def clean(text) -> str:
+    """Model text before it reaches the terminal: strip ANSI/OSC sequences and control characters so a
+    model (or a web page it read) cannot clear the screen, retitle the window, write the clipboard or
+    fake a checkpoint prompt. Newlines and tabs are kept."""
+    return _CONTROL.sub("", str(text))
 
 
 def _fmt(secs: float) -> str:

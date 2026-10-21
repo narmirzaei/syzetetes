@@ -13,7 +13,7 @@ from .config import USER_CONFIG, Config, load_config
 from .engine import Debate
 from .runs import RunFiles, list_runs, load_sources, load_state, new_run, resolve
 from .spec import DEFAULT_NAME, config_overrides, inputs, load_spec, template, wizard
-from .ui import progress, setup_logging
+from .ui import clean, progress, setup_logging
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -265,7 +265,7 @@ def _drive(d: Debate) -> int:
         progress.stop()
     verdict = (d.state.get("synthesis") or {}).get("verdict")
     if verdict:
-        print(f"\nThe referee's verdict:\n{verdict}")
+        print(f"\nThe referee's verdict:\n{clean(verdict)}")
     if d.judge is not None and getattr(d.judge, "calls", 0):
         print(f"\nJev: {d.judge.calls} calls, {d.judge.input_tokens:,} input tokens "
               f"(≈ ${d.judge.input_tokens / 1e6 * 0.042:.3f})")

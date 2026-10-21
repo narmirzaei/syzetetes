@@ -28,3 +28,9 @@ def test_log_handler_writes_lines(monkeypatch):
     lg = logging.getLogger("ui-test"); lg.handlers[:] = [h]; lg.propagate = False
     lg.info("hello"); lg.warning("careful")
     assert "hello\n" in buf.getvalue() and "careful" in buf.getvalue()
+
+
+def test_clean_strips_terminal_control_sequences():
+    from syzetetes.ui import clean
+    s = "a\x1b[2Jb\x1b]0;evil\x07c\x1b]52;c;aGVsbG8=\x1b\\d\x00e\n\tf"
+    assert clean(s) == "abcde\n\tf"

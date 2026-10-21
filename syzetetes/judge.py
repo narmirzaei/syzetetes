@@ -65,8 +65,9 @@ class JudgeError(RuntimeError):
 
 
 def _dotenv_key() -> str:
-    """Fallback: TYPESAFE_API_KEY=... in ./.env.local or ./.env (never committed; both are gitignored)."""
-    for name in (".env.local", ".env"):
+    """Fallback: TYPESAFE_API_KEY=... in ./.env.local (never committed; gitignored). Only that file, so running
+    inside someone else's checkout does not silently bill their key."""
+    for name in (".env.local",):
         try:
             for line in Path(name).read_text().splitlines():
                 k, _, v = line.partition("=")

@@ -159,7 +159,7 @@ topic = "Is sub-replacement fertility a serious problem, or is the pension 'Ponz
 # starting point, all optional
 note = "I am evaluating an economist's claim that fewer babies is not a problem."
 context_files = ["notes.md"]                       # text handed to both sides as context
-sources = ["https://example.org/paper", "~/papers/jones-2022.txt"]   # both sides must read, cite, check
+sources = ["https://example.org/paper", "papers/jones-2022.txt"]     # both sides must read, cite, check
 opinions = ["I suspect pensions are the real issue, not fertility."]   # not binding; they must engage with it
 facts = ["Scope is economics only; ignore climate arguments."]         # binding; treated as true
 
@@ -189,7 +189,7 @@ retries = 3
 # redo_openings = false
 ```
 
-Paths in `context_files` and `sources` resolve relative to the spec file. `syzetetes run` also accepts a
+Paths in `context_files` and `sources` resolve relative to the spec file and must stay inside its folder: a spec is data that may come from someone else, so it cannot read your other files into a prompt. Files elsewhere go through `--context` and `--source`, which are yours. `syzetetes run` also accepts a
 spec file anywhere on disk (`syzetetes run examples/cheap-smoke-test.toml`), in which case a new code is
 allocated. A run started from a topic saves the spec it ran with, so any run can be reproduced or copied.
 
