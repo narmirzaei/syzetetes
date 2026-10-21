@@ -50,3 +50,6 @@ htmlcov/
 # Local secrets and env
 .env
 .env.*
+
+# Private planning notes
+tasks/
