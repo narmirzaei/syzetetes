@@ -546,12 +546,16 @@ tests/         scripted fake agents; no CLIs or network needed
 
 ## Contributing
 
-Issues and pull requests are welcome. Keep the debaters symmetric, keep the ledger as the single source
-of truth, give every new flag a spec key, and add a fake-agent test for any change to the engine. Every
-change that touches a spec key, a command, or the report format must update the README recipes, the
-files under `examples/`, and `example-report.md` in the same commit; `tests/test_examples.py` loads every
-example and fails on an unknown key or a missing referenced file.
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for the engineering rules
+and the contributor license grant. In short: keep the debaters symmetric, keep the ledger as the single
+source of truth, give every new flag a spec key, add a fake-agent test for any change to the engine, and
+update the README recipes, `examples/` and `example-report.md` in the same commit as the feature.
 
 ## License
 
-[MIT](LICENSE).
+Source-available. Free to use, study, change and share for personal, research, educational, hobby and
+nonprofit purposes under the [PolyForm Noncommercial 1.0.0](LICENSE) license. **Commercial use of any
+kind requires a separate license** from the author: open an issue to ask.
+
+Relicensed from MIT on 2026-10-21. The snapshot published under MIT before that date remains available
+under MIT to anyone who obtained it then.
