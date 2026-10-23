@@ -94,7 +94,7 @@ python3 -m venv .venv && .venv/bin/pip install -e . pytest    # venv for the tes
 ```
 
 Requires `claude` and `codex` on your PATH, both logged in (`claude` and `codex login`). For the judge,
-put `TYPESAFE_API_KEY=...` in `./.env.local` or export it (get one at https://console.typesafe.ai/keys).
+either `export TYPESAFE_API_KEY=...` or run `syzetetes key` once, which stores it in `~/.config/syzetetes/credentials.toml` with mode 600 (get one at https://console.typesafe.ai/keys).
 Without a key the run prints one warning and proceeds without the judge.
 
 ## Five-minute tour
@@ -472,7 +472,8 @@ syzetetes review CODE             write and open the interactive review
 syzetetes chat CODE [QUESTION]    grounded Q&A over the report
 syzetetes list                    runs, codes and status
 syzetetes render CODE             re-render the report from saved state
-syzetetes config                  print the effective defaults
+syzetetes config                  print the effective defaults and where the judge's key comes from
+syzetetes key                     store the TypeSafe API key for the judge (prompted; never on the command line)
 ```
 
 `syzetetes run --help` lists every flag; each maps to a spec key. Ctrl-C at any time is safe.
@@ -500,6 +501,9 @@ max_rounds = 6
 pause_on = ["referee", "stall", "disputes"]
 out_dir = "~/debates"
 ```
+
+Secrets live next to it, never in it: `syzetetes key` writes `~/.config/syzetetes/credentials.toml` (mode 600),
+and an exported `TYPESAFE_API_KEY` takes precedence. Both files honour `XDG_CONFIG_HOME`.
 
 ## Design notes
 

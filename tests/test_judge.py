@@ -122,6 +122,8 @@ def test_no_judge_means_plain_ledger(tmp_path):
 
 
 def test_missing_key_disables_judge_with_warning(tmp_path, monkeypatch, caplog):
+    from syzetetes import config as conf
+    monkeypatch.setattr(conf, "CREDENTIALS", tmp_path / "none.toml")
     monkeypatch.delenv(J.ENV_KEY, raising=False)
     monkeypatch.chdir(tmp_path)
     import logging
@@ -179,11 +181,24 @@ def test_jev_http_client(monkeypatch, tmp_path):
         J.JevJudge(api_key="bad").ask({}, {"q": J._noul("x")})
 
 
-def test_key_from_dotenv(monkeypatch, tmp_path):
+def test_key_from_env_then_credentials_file(monkeypatch, tmp_path):
+    from syzetetes import config as conf
+    creds = tmp_path / "credentials.toml"
+    monkeypatch.setattr(conf, "CREDENTIALS", creds)
     monkeypatch.delenv(J.ENV_KEY, raising=False)
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / ".env.local").write_text('OTHER=1\nTYPESAFE_API_KEY="abc"\n')
-    assert J.JevJudge().api_key == "abc"
+    with pytest.raises(J.JudgeError, match="syzetetes key"):
+        J.JevJudge()
+    path = conf.save_api_key(J.ENV_KEY, 'ab"c')
+    assert path == creds and oct(creds.stat().st_mode & 0o777) == "0o600"
+    assert J.JevJudge().api_key == 'ab"c' and conf.key_source(J.ENV_KEY) == "credentials.toml"
+    conf.save_api_key("OTHER_KEY", "x")                       # merging keeps the first one
+    assert conf.api_key(J.ENV_KEY) == 'ab"c' and conf.api_key("OTHER_KEY") == "x"
+    monkeypatch.setenv(J.ENV_KEY, "fromenv")
+    assert J.JevJudge().api_key == "fromenv" and conf.key_source(J.ENV_KEY) == "env"
+    (tmp_path / ".env.local").write_text('TYPESAFE_API_KEY="dotenv"\n')      # no longer read
+    monkeypatch.delenv(J.ENV_KEY); monkeypatch.chdir(tmp_path); creds.unlink()
+    with pytest.raises(J.JudgeError):
+        J.JevJudge()
 
 
 def test_merge_choice_averages_orderings():

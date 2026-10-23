@@ -1,13 +1,24 @@
-"""Configuration: built-in defaults, ~/.config/syzetetes/config.toml, then CLI overrides."""
+"""Configuration: built-in defaults, the user's config file, then CLI overrides; and the credentials file.
+
+Both live in the XDG config directory ($XDG_CONFIG_HOME, default ~/.config), like gh, pip and poetry:
+  config.toml       settings, safe to paste into an issue
+  credentials.toml  secrets, mode 0600, never printed
+"""
 from __future__ import annotations
 
 import dataclasses
+import logging
+import os
 import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-USER_CONFIG = Path.home() / ".config" / "syzetetes" / "config.toml"
+log = logging.getLogger("syzetetes")
+
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "syzetetes"
+USER_CONFIG = CONFIG_DIR / "config.toml"
+CREDENTIALS = CONFIG_DIR / "credentials.toml"
 CODEX_USER_CONFIG = Path.home() / ".codex" / "config.toml"
 
 
@@ -121,3 +132,49 @@ def legacy_referee(overrides: dict) -> dict:
     o["referee"] = overrides.get("scribe", "claude")
     o["judge"] = "jev"
     return o
+
+
+# ---------------------------------------------------------------- credentials
+
+def api_key(name: str) -> str:
+    """A secret by its environment-variable name: the environment first (12-factor, CI), then the
+    credentials file (key in lower case, e.g. typesafe_api_key). Never logged."""
+    value = os.environ.get(name, "")
+    if value:
+        return value
+    try:
+        if CREDENTIALS.stat().st_mode & 0o077:
+            log.warning("%s is readable by other users; run: chmod 600 %s", CREDENTIALS, CREDENTIALS)
+        with CREDENTIALS.open("rb") as f:
+            return str(tomllib.load(f).get(name.lower(), "") or "")
+    except (OSError, tomllib.TOMLDecodeError):
+        return ""
+
+
+def key_source(name: str) -> str:
+    """Where a key would come from, for `syzetetes config`: 'env', 'credentials.toml' or ''."""
+    if os.environ.get(name):
+        return "env"
+    return CREDENTIALS.name if api_key(name) else ""
+
+
+def save_api_key(name: str, value: str) -> Path:
+    """Store a secret in the credentials file (created mode 0600; other keys in it are kept)."""
+    CREDENTIALS.parent.mkdir(parents=True, exist_ok=True)
+    data = {}
+    try:
+        with CREDENTIALS.open("rb") as f:
+            data = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        pass
+    data[name.lower()] = value
+    body = "".join(f"{k} = {_toml_str(v)}\n" for k, v in data.items())
+    fd = os.open(CREDENTIALS, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(body)
+    os.chmod(CREDENTIALS, 0o600)
+    return CREDENTIALS
+
+
+def _toml_str(v) -> str:
+    return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'

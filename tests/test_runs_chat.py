@@ -75,6 +75,7 @@ def test_cli_parsers_build():
     assert (a.run, a.keep_rounds, a.opinion, a.pause_on, a.out_dir) == ("D0001", 2, ["x"], "disputes,round:2", "o")
     a = p.parse_args(["run", "t", "--fact", "r", "--unattended"])
     assert a.fact == ["r"] and a.unattended is True
+    assert p.parse_args(["key"]).cmd == "key"
 
 
 def test_review_html_embeds_state(tmp_path):

@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-from .config import USER_CONFIG, Config, load_config
+from .config import CREDENTIALS, USER_CONFIG, Config, key_source, load_config, save_api_key
 from .engine import Debate
 from .runs import RunFiles, list_runs, load_sources, load_state, new_run, resolve
 from .spec import DEFAULT_NAME, config_overrides, inputs, load_spec, template, wizard
@@ -60,7 +60,8 @@ def _parser() -> argparse.ArgumentParser:
     ls = sub.add_parser("list", help="list runs and their codes")
     ls.add_argument("--out", dest="out_dir", help="directory holding run folders (default: ./debates)")
 
-    sub.add_parser("config", help="print the effective configuration")
+    sub.add_parser("config", help="print the effective configuration and where the judge's key comes from")
+    sub.add_parser("key", help=f"store the TypeSafe API key for the judge in {CREDENTIALS} (prompted, never on the command line)")
     return p
 
 
@@ -145,6 +146,18 @@ def _main(argv: list[str] | None) -> int:
         print(f"# effective config (user file: {USER_CONFIG}{'' if USER_CONFIG.exists() else ' — not present'})")
         for k, v in cfg.to_dict().items():
             print(f"{k} = {json.dumps(v)}")
+        src = key_source("TYPESAFE_API_KEY")
+        print(f"# TYPESAFE_API_KEY: {'set via environment' if src == 'env' else f'set in {CREDENTIALS}' if src else 'not set (export it or run: syzetetes key)'}")
+        return 0
+
+    if args.cmd == "key":
+        import getpass
+        value = (getpass.getpass("TYPESAFE_API_KEY: ") if sys.stdin.isatty() else sys.stdin.readline()).strip()
+        if not value:
+            print("error: no key given", file=sys.stderr)
+            return 2
+        path = save_api_key("TYPESAFE_API_KEY", value)
+        print(f"Stored in {path} (mode 600). Remove it with: rm {path}")
         return 0
 
     if args.cmd in ("render", "resume", "chat", "list", "rerun", "review"):

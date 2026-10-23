@@ -73,7 +73,7 @@ referee_model = {j(c["referee_model"])}
 referee_effort = {j(c["referee_effort"])}
 judge = {j(c["judge"])}                  # jev | none. Jev (TypeSafe's decision model) rules independently on every claim
                                  # after every round with a confidence; disagreements are fed back into the debate.
-                                 # Needs $TYPESAFE_API_KEY (./.env.local works); skipped with a warning without it.
+                                 # Needs $TYPESAFE_API_KEY (or `syzetetes key`); skipped with a warning without it.
 judge_model = {j(c["judge_model"])}      # jev-latest | jev-preview | jev-1.14.0
 
 # ------------------------------------------------------------------ debate shape and human pauses
@@ -202,7 +202,7 @@ def wizard(ask=input, say=print, defaults: dict | None = None) -> dict:
     v["referee_model"] = one("Referee model", d["referee_model"])
     v["referee_effort"] = one("Referee effort", d["referee_effort"])
     say("Judge: Jev (TypeSafe's decision model) rules independently on every claim after every round with a")
-    say("confidence; confident disagreements go back into the debate. Needs $TYPESAFE_API_KEY.")
+    say("confidence; confident disagreements go back into the debate. Needs $TYPESAFE_API_KEY or `syzetetes key`.")
     v["judge"] = "jev" if yes("Use the Jev judge?", d["judge"] == "jev") else "none"
     if v["judge"] == "jev":
         v["judge_model"] = one("Jev model", d["judge_model"])
@@ -237,7 +237,7 @@ def config_overrides(spec: dict) -> dict:
 
 def local_file(base: Path, ref: str, what: str) -> Path:
     """A file named in a spec must live inside the spec's folder. A spec is data that may come from
-    someone else; it must not be able to read ~/.ssh or ./.env.local into a prompt. Absolute paths and
+    someone else; it must not be able to read ~/.ssh or ~/.config/syzetetes/credentials.toml into a prompt. Absolute paths and
     `~` are rejected; `..` must not escape the folder. (CLI flags are the user's own and are not confined.)"""
     if ref.startswith("~") or Path(ref).is_absolute():
         raise SystemExit(f"error: {what} {ref!r}: a spec may only name files inside its own folder "

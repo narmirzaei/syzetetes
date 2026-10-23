@@ -12,13 +12,13 @@ Jev's documented weaknesses, and how each is handled here:
   - multi-hop questions          -> each question is one judgment; combinations are done in code
   - counting / arithmetic        -> never asked; `settled`, stalls and thresholds are computed in code
 
-API: POST https://api.typesafe.ai/v1/systemone with a bearer key from TYPESAFE_API_KEY. Zero dependencies.
+API: POST https://api.typesafe.ai/v1/systemone with a bearer key from $TYPESAFE_API_KEY or
+~/.config/syzetetes/credentials.toml (see config.api_key). Zero dependencies.
 """
 from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 import urllib.error
 import urllib.request
@@ -26,6 +26,7 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 
+from . import config as conf
 from .ui import progress
 
 log = logging.getLogger("syzetetes")
@@ -64,19 +65,6 @@ class JudgeError(RuntimeError):
     pass
 
 
-def _dotenv_key() -> str:
-    """Fallback: TYPESAFE_API_KEY=... in ./.env.local (never committed; gitignored). Only that file, so running
-    inside someone else's checkout does not silently bill their key."""
-    for name in (".env.local",):
-        try:
-            for line in Path(name).read_text().splitlines():
-                k, _, v = line.partition("=")
-                if k.strip() == ENV_KEY:
-                    return v.strip().strip('"').strip("'")
-        except OSError:
-            continue
-    return ""
-
 
 class Judge(ABC):
     """Anything that answers typed questions about a state. Jev is the real one; tests use a fake."""
@@ -90,14 +78,15 @@ class Judge(ABC):
 class JevJudge(Judge):
     def __init__(self, model: str = DEFAULT_MODEL, api_key: str | None = None, timeout_s: int = 60, retries: int = 4):
         self.model = model
-        self.api_key = api_key or os.environ.get(ENV_KEY, "") or _dotenv_key()
+        self.api_key = api_key or conf.api_key(ENV_KEY)
         self.timeout_s, self.retries = timeout_s, retries
         self.label = f"Jev ({model})"
         self.calls = 0
         self.input_tokens = 0
         if not self.api_key:
-            raise JudgeError(f"no TYPESAFE_API_KEY (put it in ./.env.local or export it; https://console.typesafe.ai/keys); "
-                             f"running without the judge, so no confidences and no contested claims. --judge none silences this.")
+            raise JudgeError(f"no {ENV_KEY}: export it, or run `syzetetes key` to store it in {conf.CREDENTIALS} "
+                             f"(get one at https://console.typesafe.ai/keys); running without the judge, so no confidences "
+                             f"and no contested claims. --judge none silences this.")
 
     def ask(self, state: dict, questions: dict) -> dict:
         body = json.dumps({"model": self.model, "state": state, "questions": questions}, ensure_ascii=False).encode()
