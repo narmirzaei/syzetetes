@@ -37,8 +37,8 @@ class _GroundedFake:
         doc = prompt.split("# Document\n\n", 1)[1].split("\n\n# Earlier questions", 1)[0]
         q = prompt.rsplit("# Question\n\n", 1)[1]
         hit = next((w for w in q.split() if w in doc), None)
-        return ({"answer": f"The report mentions {hit}.", "covered": True, "evidence": [hit]} if hit
-                else {"answer": "Not in the report.", "covered": False, "evidence": []})
+        return ({"answer": f"The report mentions {hit}.", "covered": True, "claims": [], "evidence": [hit]} if hit
+                else {"answer": "Not in the report.", "covered": False, "claims": [], "evidence": []})
 
 
 def test_chat_grounds_on_report_and_logs(tmp_path):
@@ -55,6 +55,21 @@ def test_chat_grounds_on_report_and_logs(tmp_path):
     assert "Q: what about pensions" in prompt           # session history is carried
     log = files.chat_log.read_text()
     assert "what about pensions" in log and "Not covered" in log
+
+
+def test_chat_render_explains_claims_with_ledger_status():
+    out = {"answer": "Codex gave ground on K2. Claude still disputes K5.", "covered": True,
+           "claims": [{"id": "K2", "gist": "Pensions can be fixed by reform"},
+                      {"id": "K5", "gist": "Fewer people means less innovation"}],
+           "evidence": ["one", "two", "three"]}
+    status = {"K2": "conceded", "K5": "disputed"}
+    plain = chatmod.render(out, status, color=False)
+    assert "K2  Pensions can be fixed by reform  conceded" in plain and "K5  Fewer people" in plain
+    assert "\033" not in plain and "“three”" not in plain          # at most two quotes
+    colored = chatmod.render(out, status, color=True)
+    assert "\033[1mK2\033[0m" in colored and "\033[38;5;37mCodex" in colored and "\033[31mdisputed" in colored
+    not_covered = chatmod.render({"answer": "No.", "covered": False, "claims": [], "evidence": []}, {}, color=False)
+    assert "does not cover" in not_covered
 
 
 def test_chat_agent_is_smallest_model_no_thinking():
