@@ -11,6 +11,7 @@ The page embeds the run's state and renders, with no network access:
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from .runs import RunFiles
@@ -43,6 +44,8 @@ def _slim(state: dict) -> dict:
         "facts": state.get("facts", state.get("rulings", [])), "opinions": state.get("opinions", []),
         "memos": memos, "rounds": state["rounds"], "closings": state.get("closings", {}),
         "synthesis": state.get("synthesis"),
+        "phase": state.get("phase", "done"), "max_rounds": state.get("max_rounds", 0),
+        "saved_at": datetime.now().strftime("%H:%M:%S"),
     }
 
 
@@ -71,6 +74,8 @@ TEMPLATE = r"""<!doctype html>
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
 header{padding:20px 16px 8px;max-width:1400px;margin:0 auto}
 h1{font-size:20px;margin:0 0 6px;line-height:1.3}
+.live{margin-top:8px;padding:6px 10px;border-radius:6px;background:rgba(255,170,0,.16);font-size:13px}
+.live button{margin-left:8px;font:inherit;font-size:12px;cursor:pointer}
 h2{font-size:15px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 h3{font-size:15px;margin:14px 0 6px}
 .meta{color:var(--muted);font-size:13px}
@@ -129,6 +134,7 @@ button:hover{border-color:var(--accent)}
 <header>
   <h1 id="title"></h1>
   <div class="meta" id="meta"></div>
+  <div class="live" id="live" hidden></div>
 </header>
 <div class="wrap">
   <main>
@@ -350,6 +356,40 @@ function showRound(rn){
   for (const hu of (humanAt[rn]||[])) h += `<div class="human"><b>${hu.kind}</b> ${esc(hu.text.replace(/^\([^)]*\)\s*/,""))}</div>`;
   side.innerHTML = h; side.scrollTop = 0;
 }
+// ---- live updates: while the debate is still running the page reloads itself and keeps your place
+(function(){
+  const KEY = "syzetetes-view-" + S.code;
+  let view = null;
+  for (const name of ["showCell","showClaim","showRound"]) {
+    const orig = window[name];
+    window[name] = (...args) => { view = [name, ...args]; return orig(...args); };
+  }
+  let saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(KEY) || "null"); sessionStorage.removeItem(KEY); } catch (e) {}
+  if (saved) {
+    if (saved.view && window[saved.view[0]]) { try { window[saved.view[0]](...saved.view.slice(1)); } catch (e) {} }
+    if (saved.side != null) { const sd = document.getElementById("side"); if (sd) sd.scrollTop = saved.side; }
+    window.scrollTo(0, saved.y || 0);
+  }
+  if (!S.phase || S.phase === "done") return;
+  const done = Math.max(0, S.rounds.length - 1);
+  const where = {research:"researching", opening:"writing opening positions", rounds:`round ${done} of ${S.max_rounds} done`,
+                 closing:"writing closing statements", synthesis:"writing the verdict"}[S.phase] || S.phase;
+  const box = document.getElementById("live");
+  let paused = false, left = 10;
+  const draw = () => { box.innerHTML = `<b>Live</b> · ${esc(where)} · updated ${esc(S.saved_at)} · `
+    + (paused ? "updates paused" : `next check in ${left}s`)
+    + `<button id="livebtn">${paused ? "Resume updates" : "Pause updates"}</button>`;
+    document.getElementById("livebtn").onclick = () => { paused = !paused; left = 10; draw(); }; };
+  box.hidden = false; draw();
+  setInterval(() => {
+    if (paused) return;
+    if (--left > 0) return draw();
+    const sd = document.getElementById("side");
+    try { sessionStorage.setItem(KEY, JSON.stringify({y: window.scrollY, side: sd ? sd.scrollTop : null, view})); } catch (e) {}
+    location.reload();
+  }, 1000);
+})();
 </script>
 </body>
 </html>

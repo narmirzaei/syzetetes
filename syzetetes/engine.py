@@ -20,6 +20,7 @@ from . import prompts, schemas
 from .agents import Agent, make_agent
 from .config import Config
 from . import judge as judging
+from . import narrate
 from .report import render_report
 from .review import write_review
 from .runs import RunFiles, load_state, new_run, rename_slug, resolve
@@ -236,6 +237,7 @@ class Debate:
             prompts.debater_system(who, topic), prompts.research_prompt(topic, ctx, self.state.get("sources", [])),
             schemas.RESEARCH, web=True, what="research"))
         self.state["memos"] = memos
+        self._say(narrate.research_lines(memos, progress.enabled))
         for who, m in memos.items():
             self._tx(f"\n## Research briefing: {prompts.DISPLAY[who]}\n\n{m['summary']}\n\n" +
                      "\n".join(f"- [{f['confidence']}] {f['finding']} — " + "; ".join(s['url'] for s in f['sources'])
@@ -251,6 +253,7 @@ class Debate:
             schemas.TURN, web=True, what="opening"))
         for who in ("claude", "codex"):
             self._tx(f"\n## Opening: {prompts.DISPLAY[who]}\n\n{turns[who]['argument']}\n")
+            self._say(narrate.turn_lines(who, 0, turns[who], {}, progress.enabled))
         ledger = self._referee(None, turns, 0, None)
         self.state["rounds"].append({"round": 0, "first": "both", "turns": turns, "ledger": ledger})
         self._advance("rounds")
@@ -281,6 +284,7 @@ class Debate:
                                         self.state.get("opinions", [])),
                     schemas.TURN, web=True, what=f"round {r}")
                 self._tx(f"\n## Round {r}: {prompts.DISPLAY[who]}\n\n{turns[who]['argument']}\n")
+                self._say(narrate.turn_lines(who, r, turns[who], narrate.claims_by_id(ledger), progress.enabled))
             prev_ledger = self.state["rounds"][-2]["ledger"] if len(self.state["rounds"]) >= 2 else None
             new_ledger = self._referee(ledger, turns, r, prev_ledger)
             self.state["rounds"].append({"round": r, "first": first, "turns": turns, "ledger": new_ledger})
@@ -336,6 +340,7 @@ class Debate:
                  + ("\n" + _judge_md(new) + "\n" if new.get("judged_by") else ""))
         log.info("ledger after round %d: %s%s", round_no, counts,
                  f"; judge contests {len(new.get('contested', []))}" if new.get("judged_by") else "")
+        self._say(narrate.ledger_lines(round_no, ledger, new, progress.enabled))
         progress.ledger(round_no, _status_tally(new))
         return new
 
@@ -523,6 +528,18 @@ class Debate:
         tmp = self.state_path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.state, indent=1, ensure_ascii=False))
         tmp.replace(self.state_path)
+        if self.state.get("rounds"):                       # keep the review page live while the run goes on
+            try:
+                write_review(self.files, self.state)
+            except Exception as e:                         # the page is a convenience; never stop a debate for it
+                log.warning("could not update the review page: %s", e)
+
+    @staticmethod
+    def _say(lines: list[str]):
+        """Narration for whoever is watching the terminal: a blank line, then the lines."""
+        progress.emit("")
+        for line in lines:
+            progress.emit(line)
 
     def _tx(self, md: str):
         with self.transcript.open("a") as f:

@@ -57,6 +57,10 @@ def _parser() -> argparse.ArgumentParser:
     _run_ref(rv)
     rv.add_argument("--no-open", action="store_true", help="only write the file; do not open it in the browser")
 
+    wt = sub.add_parser("watch", help="follow a running debate: print each round as it lands and keep the review page live")
+    _run_ref(wt)
+    wt.add_argument("--no-open", action="store_true", help="do not open the live review page in the browser")
+
     ls = sub.add_parser("list", help="list runs and their codes")
     ls.add_argument("--out", dest="out_dir", help="directory holding run folders (default: ./debates)")
 
@@ -160,7 +164,7 @@ def _main(argv: list[str] | None) -> int:
         print(f"Stored in {path} (mode 600). Remove it with: rm {path}")
         return 0
 
-    if args.cmd in ("render", "resume", "chat", "list", "rerun", "review"):
+    if args.cmd in ("render", "resume", "chat", "list", "rerun", "review", "watch"):
         out_dir = Path(args.out_dir or load_config().out_dir)
 
     if args.cmd == "list":
@@ -193,6 +197,33 @@ def _main(argv: list[str] | None) -> int:
         if not args.no_open:
             import webbrowser
             webbrowser.open(out.resolve().as_uri())
+        return 0
+
+    if args.cmd == "watch":
+        from .narrate import follow
+        from .review import write_review
+        files = resolve(args.run, out_dir)
+        color = sys.stdout.isatty()
+        say = lambda line: print(clean(line) if not color else line, flush=True)
+        say.color = color
+        opened = []
+
+        def refresh(state):
+            if not state.get("rounds"):
+                return
+            page = write_review(files, state)
+            if not opened and not args.no_open:
+                import webbrowser
+                webbrowser.open(page.resolve().as_uri())
+                opened.append(page)
+                say(f"Live page: {page}")
+
+        try:
+            follow(files, emit=say, on_change=refresh)
+        except KeyboardInterrupt:
+            print("\nStopped watching. The debate itself is unaffected.")
+            return 130
+        print(f"\nDone. Report: {files.report}")
         return 0
 
     if args.cmd == "chat":
@@ -267,6 +298,7 @@ def _drive(d: Debate) -> int:
     log.info("Claude: %s | Codex: %s | Referee: %s | Judge: %s | pause on: %s",
              d.agents["claude"].label, d.agents["codex"].label, d.agents["referee"].label,
              d.judge.label if d.judge else "none", ", ".join(d.cfg.pause_on) or "nothing (unattended)")
+    log.info("watch it in your browser after the openings: %s (it updates itself)", d.files.review.resolve())
     progress.start()
     try:
         report = d.run()

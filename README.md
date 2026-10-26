@@ -50,6 +50,7 @@ judge's rulings and the referee's verdict) and [examples/](examples/) for ready-
   - [Replay a finished debate with hindsight](#replay-a-finished-debate-with-hindsight)
   - [How the judge works](#how-the-judge-works)
   - [Let Codex referee, or run without a judge](#let-codex-referee-or-run-without-a-judge)
+  - [Watch a debate](#watch-a-debate)
   - [Review how the synthesis was reached](#review-how-the-synthesis-was-reached)
   - [Interrogate the result](#interrogate-the-result)
   - [Reproduce a run](#reproduce-a-run)
@@ -140,9 +141,12 @@ syzetetes run "Is remote work net positive for early-stage startups?"
    transcript and a numbered reference list; and an interactive HTML review of how the ledger moved. The
    verdict is also printed in the terminal when the run ends.
 
-While it runs, the terminal shows a live status line (phase, round, who is thinking and for how long)
-and a coloured ledger bar after every referee pass; the transcript file in the run folder is appended
-live so you can read along. Redirect stderr to a file and the display degrades to plain log lines.
+While it runs, the terminal tells you what is happening in plain lines: after each turn, what that
+debater did with each claim (agrees, holds, changes, agrees to disagree) and the claims it added; after
+each round, the referee's short summary and only the claims whose status changed, plus any claim the judge
+confidently disagrees on. A status line shows who is thinking and for how long, and a coloured bar shows
+the ledger. The review page in the run folder updates itself as the debate goes (see
+[Watch a debate](#watch-a-debate)). Redirect stderr to a file and the display degrades to plain text.
 
 ## The spec file
 
@@ -405,6 +409,21 @@ syzetetes run "..." --referee codex --referee-model gpt-6.1-sol
 syzetetes run "..." --judge none
 ```
 
+### Watch a debate
+
+```bash
+syzetetes watch D0008          # from a second terminal, while D0008 runs
+```
+
+Prints each round as it lands, in the same plain lines `run` shows, and opens the review page, which
+reloads itself every 10 seconds until the debate is done. A banner says where the debate is; your
+scroll position and the cell you selected survive each reload, and "Pause updates" stops it while you
+read. `watch` only reads the run (it rewrites the review page), so starting or stopping it never affects
+the debate. It also works for a run started before this feature existed. `--no-open` skips the browser.
+
+A run started with `syzetetes run` keeps its review page live by itself after the openings; the path
+is printed when the run starts.
+
 ### Review how the synthesis was reached
 
 ```
@@ -470,6 +489,7 @@ syzetetes init [TOPIC] [-i]       create a run folder (code + name) with its spe
 syzetetes run CODE|SPEC|TOPIC     start a debate from an init'd code, a spec file, or a question
 syzetetes resume CODE             continue an interrupted run from its last saved step
 syzetetes rerun CODE [...]        replay a finished run from a chosen round with new input
+syzetetes watch CODE              follow a running debate in the terminal and a live review page
 syzetetes review CODE             write and open the interactive review
 syzetetes chat CODE [QUESTION]    grounded Q&A over the report
 syzetetes list                    runs, codes and status
@@ -535,7 +555,8 @@ syzetetes/
   prompts.py   every prompt
   schemas.py   JSON schemas and a small validator
   report.py    Markdown report with numbered references
-  review.py    interactive HTML review
+  review.py    interactive HTML review, live while a run is going
+  narrate.py   the plain one-line narration of a run (run and watch)
   ui.py        terminal status line and ledger bar
   chat.py      grounded Q&A over a finished report
   runs.py      run codes, folder layout, source loading
