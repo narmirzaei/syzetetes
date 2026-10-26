@@ -432,8 +432,10 @@ syzetetes chat D0001 "What did Codex concede in round 2?" | jq .     # JSON when
 ```
 
 Answers are grounded on the report text only: the whole report is put in the prompt, the model is told
-to answer from it or say the debate does not cover the question, and every answer carries verbatim
-excerpts. It uses the smallest Claude model (haiku), effort low, extended thinking disabled, no tools and
+to answer from it or say the debate does not cover the question, and every answer carries up to two
+verbatim excerpts. Answers are short and in plain words. Every claim an answer mentions is listed under it
+with a one-line gist and its final status from the ledger, and in a terminal the names, claim IDs and
+statuses are coloured. It uses the smallest Claude model (haiku), effort low, extended thinking disabled, no tools and
 no web. Neither CLI exposes a sampling temperature, so this is as deterministic as they allow. Each
 session is appended to the run's chat log.
 
